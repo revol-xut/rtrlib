@@ -1526,6 +1526,7 @@ static int rtr_sync_receive_and_store_pdus(struct rtr_socket *rtr_socket)
 			break;
 
 		case EOD:
+            retval = retval;
 			struct pdu_end_of_data_v0 *eod_pdu = (struct pdu_end_of_data_v0 *)pdu_data;
 
 			retval = rtr_handle_eod_pdu(rtr_socket, eod_pdu, pdu_data);

@@ -31,22 +31,27 @@
 #ifndef RTR_ASPA_H
 #define RTR_ASPA_H
 
-#include "aspa_array/aspa_array.h"
+#include "aspa_array/aspa_tree.h"
 
-#include "rtrlib/rtr/rtr.h"
+#include "../rtr/rtr.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifndef RTR_ASPA_RECORD
+#define RTR_ASPA_RECORD
 /**
  * @brief ASPA Record
  * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers
  */
 struct aspa_record {
+	int32_t is_internal;
 	uint32_t customer_asn;
 	size_t provider_count;
 	uint32_t *provider_asns;
 };
+#endif
 
 /**
  * @brief Computes size of a given ASPA record.
@@ -67,7 +72,7 @@ typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_
 			       const struct rtr_socket *rtr_socket, const bool added);
 
 struct aspa_store_node {
-	struct aspa_array *aspa_array;
+	aspa_tree *aspa_tree;
 	struct rtr_socket *rtr_socket;
 	struct aspa_store_node *next;
 };

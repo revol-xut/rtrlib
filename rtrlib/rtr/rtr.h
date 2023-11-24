@@ -20,6 +20,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../aspa/aspa_array/aspa_tree.h"
+
 enum rtr_rtvals { RTR_SUCCESS = 0, RTR_ERROR = -1, RTR_INVALID_PARAM = -2 };
 
 /**
@@ -133,7 +135,7 @@ struct rtr_socket {
 	unsigned int version;
 	bool has_received_pdus;
 	struct spki_table *spki_table;
-	struct aspa_array *aspa_array;
+	aspa_tree *aspa_tree;
 	struct aspa_table *aspa_table;
 	bool is_resetting;
 };

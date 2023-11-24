@@ -32,6 +32,8 @@ endif(CMAKE_BUILD_TYPE STREQUAL Debug)
 
 include_directories(.)
 
+link_directories(/nix/store/v8m6l4iaajynik6mvy64bcbdx74zb7zv-libssh-0.10.5/lib/)
+
 add_subdirectory(third-party)
 
 find_package(codecov)
@@ -48,7 +50,7 @@ set(RTRLIB_SRC rtrlib/rtr_mgr.c rtrlib/lib/utils.c rtrlib/lib/alloc_utils.c rtrl
     rtrlib/pfx/trie/trie.c rtrlib/pfx/trie/trie-pfx.c rtrlib/transport/transport.c
     rtrlib/transport/tcp/tcp_transport.c rtrlib/rtr/rtr.c rtrlib/rtr/packets.c
     rtrlib/spki/hashtable/ht-spkitable.c  rtrlib/aspa/aspa_array/aspa_array.c
-    rtrlib/aspa/aspa.c ${tommyds})
+    rtrlib/aspa/aspa_array/aspa_tree.c rtrlib/aspa/aspa.c ${tommyds})
 set(RTRLIB_LINK ${RT_LIB} ${CMAKE_THREAD_LIBS_INIT})
 
 include(FindPkgConfig)
@@ -141,6 +143,7 @@ ADD_TEST(test_getbits tests/test_getbits)
 ADD_TEST(test_dynamic_groups tests/test_dynamic_groups)
 
 ADD_TEST(test_as_path_verification tests/test_as_path_verification)
+ADD_TEST(test_performance_aspa tests/test_performance_aspa)
 
 if(RTRLIB_BGPSEC_ENABLED)
     ADD_TEST(test_bgpsec tests/test_bgpsec)

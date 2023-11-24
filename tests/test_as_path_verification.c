@@ -9,7 +9,7 @@
 
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/aspa/aspa.h"
-#include "rtrlib/aspa/aspa_array/aspa_array.h"
+#include "rtrlib/aspa/aspa_array/aspa_tree.h"
 
 #include <string.h>
 #include <assert.h>
@@ -37,12 +37,12 @@ static struct aspa_table *test_create_aspa_table()
 	struct rtr_socket *rtr_socket_1 = lrtr_malloc(sizeof(*rtr_socket_1));
 	assert(rtr_socket_1 != NULL);
 	rtr_socket_1->aspa_table = aspa_table;
-	rtr_socket_1->aspa_array = NULL;
+	rtr_socket_1->aspa_tree = NULL;
 
 	struct rtr_socket *rtr_socket_2 = lrtr_malloc(sizeof(*rtr_socket_2));
 	assert(rtr_socket_2 != NULL);
 	rtr_socket_2->aspa_table = aspa_table;
-	rtr_socket_2->aspa_array = NULL;
+	rtr_socket_2->aspa_tree = NULL;
 
 
 	// rtr_socket_1

@@ -9,7 +9,7 @@
 
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/aspa/aspa.h"
-#include "rtrlib/aspa/aspa_array/aspa_array.h"
+#include "rtrlib/aspa/aspa_array/aspa_tree.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -89,7 +89,7 @@ void run()
 	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
 	assert(rtr_socket != NULL);
 	rtr_socket->aspa_table = aspa_table;
-	rtr_socket->aspa_array = NULL;
+	rtr_socket->aspa_tree = NULL;
 
     clock_t c[9];
 
