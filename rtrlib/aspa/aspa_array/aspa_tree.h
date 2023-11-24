@@ -26,6 +26,7 @@
 __KB_TREE_T(aspa)
 typedef kbtree_aspa_t aspa_tree;
 #endif
+#include "splaytree.h"
 
 
 /**
@@ -41,6 +42,13 @@ struct aspa_record {
 	size_t provider_count;
 	uint32_t *provider_asns;
 };
+struct aspa_store_record {
+	int32_t is_internal;
+	uint32_t customer_asn;
+	size_t provider_count;
+	uint32_t *provider_asn_array;
+	node *provider_asn_tree;
+};
 #endif
 
 
@@ -49,7 +57,7 @@ struct aspa_record {
 /**
  * @brief Creates an vector object
  * @param[vector_pointer] the pointer to the newly created pointer will be written to *vector_pointer
- * @result Valid pointer to an aspa_array struct
+ * @result Valid pointer to an aspa_tree struct
  * @result Null On error.
  */
 int aspa_tree_create(aspa_tree **aspa_tree);
@@ -69,7 +77,7 @@ int aspa_tree_free(aspa_tree *aspa_tree);
  * @result 0 On success.
  * @result -1 On error.
  */
-int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_record *record);
+int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_store_record *record);
 
 /**
  * @brief deletes the element at the index
@@ -78,7 +86,7 @@ int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_record *record);
  * @result 0 On success.
  * @result -1 On error.
  */
-int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_record *record);
+int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_store_record *record);
 
 /**
  * @brief returns the index in the vector for a given customer as number (CAS)
@@ -87,7 +95,7 @@ int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_record *record);
  * @result index of the element on success
  * @result -1 On error or not if the element coulnd't be located
  */
-struct aspa_record *aspa_tree_find(aspa_tree *aspa_tree, uint32_t customer_asn);
+struct aspa_store_record *aspa_tree_find(aspa_tree *aspa_tree, uint32_t customer_asn);
 
 void aspa_tree_itr_first(aspa_tree *aspa_tree, kbitr_t *itr);
 

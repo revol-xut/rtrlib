@@ -15,7 +15,7 @@
 #include "kbtree.h"
 
 #define cmp_customer_asn(a,b) (((b).customer_asn < (a).customer_asn) - ((a).customer_asn < (b).customer_asn))
-KBTREE_INIT(aspa, struct aspa_record, cmp_customer_asn);
+KBTREE_INIT(aspa, struct aspa_store_record, cmp_customer_asn);
 
 
 /**
@@ -33,7 +33,7 @@ KBTREE_INIT(aspa, struct aspa_record, cmp_customer_asn);
  */
 int aspa_tree_create(aspa_tree **aspa_tree) {
     size_t k = 6;
-    size_t s = (k*2+1) * (sizeof(void*) + sizeof(struct aspa_record));
+    size_t s = (k*2+1) * (sizeof(void*) + sizeof(struct aspa_store_record));
     *aspa_tree = kb_init(aspa, s);
     if (*aspa_tree == NULL) return -1;
     return 0;
@@ -57,7 +57,7 @@ int aspa_tree_free(aspa_tree *aspa_tree) {
  * @result 0 On success.
  * @result -1 On error.
  */
-int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_record *record) {
+int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_store_record *record) {
     kb_putp(aspa, aspa_tree, record);
     return 0;
 }
@@ -69,7 +69,7 @@ int aspa_tree_insert(aspa_tree *aspa_tree, struct aspa_record *record) {
  * @result 0 On success.
  * @result -1 On error.
  */
-int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_record *record) {
+int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_store_record *record) {
     kb_delp(aspa, aspa_tree, record);
     return 0;
 }
@@ -81,10 +81,10 @@ int aspa_tree_free_at(aspa_tree *aspa_tree, struct aspa_record *record) {
  * @result index of the element on success
  * @result -1 On error or not if the element coulnd't be located
  */
-struct aspa_record *aspa_tree_find(aspa_tree *aspa_tree, uint32_t customer_asn) {
-    struct aspa_record search;
+struct aspa_store_record *aspa_tree_find(aspa_tree *aspa_tree, uint32_t customer_asn) {
+    struct aspa_store_record search;
     search.customer_asn = customer_asn;
-    struct aspa_record *key = kb_get(aspa, aspa_tree, search);
+    struct aspa_store_record *key = kb_get(aspa, aspa_tree, search);
     //kbnode_t *x = __KB_PTR(b
     return key;
 }

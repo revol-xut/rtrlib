@@ -24,15 +24,21 @@ RTRLIB_EXPORT size_t aspa_size_of_aspa_record(const struct aspa_record *record)
 	return sizeof(struct aspa_record) + sizeof(*record->provider_asns) * record->provider_count;
 }
 
-static void aspa_table_notify_clients(struct aspa_table *aspa_table, const struct aspa_record *record,
+RTRLIB_EXPORT bool aspa_record_has_provider(struct aspa_store_record *record, uint32_t provider_asn)
+{
+    return stree_find(record->provider_asn_tree, provider_asn) != NULL;
+}
+
+static void aspa_table_notify_clients(struct aspa_table *aspa_table, const struct aspa_store_record *srecord,
 				      const struct rtr_socket *rtr_socket, const bool added)
 {
 	if (aspa_table->update_fp) {
 		// Realloc in order not to expose internal record
-		size_t record_size = aspa_size_of_aspa_record(record);
+		size_t record_size = aspa_size_of_aspa_record((struct aspa_record*)srecord);
 		struct aspa_record *copy = lrtr_malloc(record_size);
 		if (copy == NULL) return;
-		memcpy(copy, record, record_size);
+		memcpy(copy, srecord, sizeof(struct aspa_record));
+		memcpy(copy + sizeof(struct aspa_record), &srecord->provider_asn_array, srecord->provider_count * sizeof(*srecord->provider_asn_array));
 		aspa_table->update_fp(aspa_table, *copy, rtr_socket, added);
 	}
 }
@@ -132,8 +138,8 @@ RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
             aspa_tree_itr_first(node->aspa_tree, &itr);
             if (itr.p != NULL) {
                 do {
-                    struct aspa_record *record = (struct aspa_record *)itr.p->x;
-                    aspa_table_notify_clients(aspa_table, record, node->rtr_socket, false);
+                    struct aspa_store_record *srecord = (struct aspa_record *)itr.p->x;
+                    aspa_table_notify_clients(aspa_table, srecord, node->rtr_socket, false);
                 } while (aspa_tree_itr_next(node->aspa_tree, &itr));
             }
 		}
@@ -154,8 +160,19 @@ RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_reco
 	if (!aspa_table)
 		return ASPA_ERROR;
 
-	pthread_rwlock_wrlock(&aspa_table->lock);
+    node *stree = NULL;
+    for (size_t i = 0; i < record->provider_count; i++) {
+        stree_insert(&stree, record->provider_asns[i]);
+    }
 
+    struct aspa_store_record* srecord = lrtr_malloc(sizeof(struct aspa_store_record));
+    srecord->is_internal = record->is_internal;
+    srecord->customer_asn = record->customer_asn;
+    srecord->provider_asn_array = record->provider_asns;
+    srecord->provider_asn_tree = stree;
+    srecord->provider_count = record->provider_count;
+
+	pthread_rwlock_wrlock(&aspa_table->lock);
 	aspa_tree *array;
 
 	// Find the socket's corresponding aspa_tree.
@@ -193,7 +210,7 @@ RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_reco
 
 	// Insert record aspa_tree
 	// TODO: This function does not handle duplicates/replacing the record
-	if (aspa_tree_insert(array, record) < 0) {
+	if (aspa_tree_insert(array, srecord) < 0) {
 		pthread_rwlock_unlock(&aspa_table->lock);
 		return ASPA_ERROR;
 	}
@@ -241,7 +258,7 @@ RTRLIB_EXPORT int aspa_table_remove(struct aspa_table *aspa_table, struct aspa_r
 		}
 	}
 
-	struct aspa_record* aspa_record = aspa_tree_find(array, record->customer_asn);
+	struct aspa_store_record* aspa_record = aspa_tree_find(array, record->customer_asn);
 
 	if (aspa_record == NULL) {
 		pthread_rwlock_unlock(&aspa_table->lock);
@@ -405,21 +422,17 @@ enum as_providership as_path_hop(struct aspa_table *aspa_table, uint32_t custome
 	while (node != NULL) {
 		aspa_tree *aspa_tree = node->aspa_tree;
 
-		struct aspa_record *record = aspa_tree_find(aspa_tree, customer_asn);
+		struct aspa_store_record *srecord = aspa_tree_find(aspa_tree, customer_asn);
 
-		if (record == NULL)
+		if (srecord == NULL)
 			goto cont;
-
 
 		customer_found = 1;
 
-		for (size_t i = 0; i < record->provider_count; i++) {
-			if (record->provider_asns[i] == provider_asn) {
-
-				pthread_rwlock_unlock(&aspa_table->lock);
-				return AS_PROVIDER;
-			}
-		}
+        if (aspa_record_has_provider(srecord, provider_asn)) {
+            pthread_rwlock_unlock(&aspa_table->lock);
+            return AS_PROVIDER;
+        }
 
 		cont:
 			node = node->next;

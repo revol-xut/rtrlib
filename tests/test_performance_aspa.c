@@ -29,23 +29,23 @@ static char *buffer_file(char *fname) {
 }
 
 
-enum as_path_verification_result *verify_as_path(struct aspa_table *aspa_table, struct rtr_socket* rtr_socket, char* f, size_t batch_size){
+int verify_as_path(struct aspa_table *aspa_table, struct rtr_socket* rtr_socket, char* f, size_t batch_size){
     uint32_t nwalks = *(uint32_t*)(&f[0]);
     long pos = sizeof(uint32_t);
 
     uint32_t plen = *(uint32_t*)(&f[pos]);
     pos += sizeof(uint32_t);
 
-    enum as_path_verification_result *results = (enum as_path_verification_result*)lrtr_malloc(sizeof(enum as_path_verification_result)*nwalks*plen/batch_size);
-
     for (int i = 0; i < nwalks; i++) {
         for (int j = 0; j < plen/batch_size; j++) {
-            results[i] = as_path_verify_upstream(aspa_table, &f[pos + j*batch_size], batch_size);
+            enum as_path_verification_result result = as_path_verify_upstream(aspa_table, (uint32_t*)&f[pos + j*batch_size*sizeof(uint32_t)], batch_size);
+            if (result != AS_PATH_VALID) {
+                return 1;
+            }
         }
         pos += plen*sizeof(uint32_t);
     }
-
-    return results;
+    return 0;
 }
 
 static struct aspa_table *load_aspa_table(struct aspa_table* aspa_table, struct rtr_socket* rtr_socket, char *f) {
@@ -107,15 +107,17 @@ void run()
     char *w = buffer_file("/home/moritz/code/oss/rtrlib/algo/rwalks.dump");
     c[3] = clock();
 
-    verify_as_path(aspa_table, rtr_socket, w, 10);
+    assert(verify_as_path(aspa_table, rtr_socket, w, 10) == 0);
+    //assert(results[0] == AS_PATH_VALID);
     c[4] = clock();
-    verify_as_path(aspa_table, rtr_socket, w, 100);
+    assert(verify_as_path(aspa_table, rtr_socket, w, 100) == 0);
+    //assert(results[0] == AS_PATH_VALID);
     c[5] = clock();
-    verify_as_path(aspa_table, rtr_socket, w, 1000);
+    assert(verify_as_path(aspa_table, rtr_socket, w, 1000) == 0);
     c[6] = clock();
-    verify_as_path(aspa_table, rtr_socket, w, 2500);
+    assert(verify_as_path(aspa_table, rtr_socket, w, 2500) == 0);
     c[7] = clock();
-    verify_as_path(aspa_table, rtr_socket, w, 7500);
+    assert(verify_as_path(aspa_table, rtr_socket, w, 7500) == 0);
     c[8] = clock();
 
 

@@ -32,6 +32,7 @@
 #define RTR_ASPA_H
 
 #include "aspa_array/aspa_tree.h"
+#include "aspa_array/splaytree.h"
 
 #include "../rtr/rtr.h"
 
@@ -50,6 +51,13 @@ struct aspa_record {
 	uint32_t customer_asn;
 	size_t provider_count;
 	uint32_t *provider_asns;
+};
+struct aspa_store_record {
+	int32_t is_internal;
+	uint32_t customer_asn;
+	size_t provider_count;
+	uint32_t *provider_asn_array;
+	node *provider_asn_tree;
 };
 #endif
 
