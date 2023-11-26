@@ -141,6 +141,10 @@ RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
 	pthread_rwlock_destroy(&aspa_table->lock);
 }
 
+int cmpfunc (const void * a, const void * b) {
+   return ( *(uint32_t*)a - *(uint32_t*)b );
+}
+
 RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_record *record,
 				 struct rtr_socket *rtr_socket, bool replace)
 {
@@ -150,6 +154,12 @@ RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_reco
 	pthread_rwlock_wrlock(&aspa_table->lock);
 
 	struct aspa_array *array;
+
+    qsort(record->provider_asns, record->provider_count, sizeof(uint32_t), cmpfunc);
+
+    for (int j = 0; j < ASPA_RECORD_CACHE_SIZE; j++) {
+        record->provider_asns_prio[j] = 0;
+    }
 
 	// Find the socket's corresponding aspa_array.
 	// If fast lookup suceeds (rtr_socket->aspa_table == aspa_table),
@@ -360,6 +370,33 @@ int aspa_table_src_move(struct aspa_table *dst, struct aspa_table *src, struct r
 	return res;
 }
 
+void *binsearch(const uint32_t key, uint32_t *array, size_t nmemb)
+{
+	size_t mid, top;
+	int val;
+	uint32_t *piv, *base = array;
+
+	mid = top = nmemb;
+
+	while (mid) {
+		mid = top / 2;
+
+		piv = base + mid;
+
+		val = key - *piv;
+
+
+		if (val == 0) {
+			return piv;
+		}
+		if (val >= 0) {
+			base = piv;
+		}
+		top -= mid;
+	}
+	return NULL;
+}
+
 enum as_providership as_path_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn)
 {
 	pthread_rwlock_rdlock(&aspa_table->lock);
@@ -379,12 +416,22 @@ enum as_providership as_path_hop(struct aspa_table *aspa_table, uint32_t custome
 
 		customer_found = 1;
 
-		for (size_t i = 0; i < aspa_array->data[pos].provider_count; i++) {
-			if (aspa_array->data[pos].provider_asns[i] == provider_asn) {
+		struct aspa_record *record = &aspa_array->data[pos];
 
-				pthread_rwlock_unlock(&aspa_table->lock);
+		for (int i = 0; i < ASPA_RECORD_CACHE_SIZE; i++) {
+			if (record->provider_asns_prio[i] == provider_asn)
 				return AS_PROVIDER;
+		}
+
+		uint32_t* prov = binsearch(provider_asn, record->provider_asns, record->provider_count);
+
+		if (prov != NULL) {
+			for (int i = ASPA_RECORD_CACHE_SIZE-1; i > 0; i--) {
+				record->provider_asns_prio[i] = record->provider_asns_prio[i-1];
 			}
+			record->provider_asns_prio[0] = *prov;
+			pthread_rwlock_unlock(&aspa_table->lock);
+			return AS_PROVIDER;
 		}
 
 		cont:

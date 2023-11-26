@@ -161,19 +161,21 @@ size_t aspa_array_search(struct aspa_array *vector, uint32_t customer_asn)
 	}
 
 	// left and right bound of our search space
-	size_t left = 0;
-	size_t right = vector->size;
+	register size_t left = 0;
+	register size_t right = vector->size;
 
 	// we stop if right and left crossed
 	while (left <= right) {
 		// current center
-		size_t center = left + ((right - left) / 2);
+		size_t center = ((left + right) >> 1);
 		uint32_t center_value = vector->data[center].customer_asn;
 
-		if (center_value == customer_asn) {
+		int diff = center_value - customer_asn;
+
+		if (diff == 0) {
 			// success found the value
 			return center;
-		} else if (center_value > customer_asn) {
+		} else if (diff > 0) {
 			// value should be on the left side
 			right = center - 1;
 		} else {

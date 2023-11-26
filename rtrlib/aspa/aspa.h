@@ -38,6 +38,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#define ASPA_RECORD_CACHE_SIZE 4
+
 /**
  * @brief ASPA Record
  * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers
@@ -45,6 +48,7 @@
 struct aspa_record {
 	uint32_t customer_asn;
 	size_t provider_count;
+	uint32_t provider_asns_prio[ASPA_RECORD_CACHE_SIZE];
 	uint32_t *provider_asns;
 };
 
