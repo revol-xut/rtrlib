@@ -56,7 +56,7 @@ bool verify_as_path2(struct aspa_table *aspa_table, char* f)
     int count = 0;
 
     do {
-        enum as_path_verification_result result = as_path_verify_upstream(aspa_table, &f[pos], plen);
+        enum as_path_verification_result result = as_path_verify_upstream(aspa_table, (uint32_t*)&f[pos], plen);
         if (result != AS_PATH_VALID) {
             printf("%d %d %lu ", pos, plen, *(uint32_t*)(&f[pos]));
             for (uint32_t j = 0; j < plen; j++) {
@@ -73,6 +73,22 @@ bool verify_as_path2(struct aspa_table *aspa_table, char* f)
     } while (plen != 0);
 
     printf("%d ", count);
+
+    return true;
+}
+
+bool verify_as_pathc(struct aspa_table *aspa_table)
+{
+    int count = 0;
+
+    //uint32_t path[] = {174, 6461, 7018, 9002, 6939, 3356, 1299, 3257, 174};
+    uint32_t path[] = {7018, 6461, 9002, 6939, 3356, 1299, 3257, 174};
+
+    enum as_path_verification_result result = as_path_verify_upstream(aspa_table, path, 8);
+    if (result != AS_PATH_VALID) {
+        printf("custom path is invalid\n");
+        return false;
+    }
 
     return true;
 }
@@ -159,7 +175,7 @@ void run()
 	rtr_socket->aspa_table = aspa_table;
 	rtr_socket->aspa_array = NULL;
 
-    clock_t c[9];
+    clock_t c[6];
 
     #define D(a,b) ((double)(c[b]-c[a])/CLOCKS_PER_SEC)
     #define D(b) ((double)(c[b]-c[b-1])/CLOCKS_PER_SEC)
@@ -178,9 +194,14 @@ void run()
     assert(verify_as_path2(aspa_table, w) == 1);
     c[4] = clock();
 
+    for (int i = 0; i < 1600000; i++) {
+        assert(verify_as_pathc(aspa_table) == 1);
+    }
+    c[5] = clock();
 
-    printf("buffer %f verify %f\n",
-        D(3), D(4));
+
+    printf("buffer %f verify %f verify_cystom %f\n",
+        D(3), D(4), D(5));
 
 }
 
