@@ -108,7 +108,7 @@ bool verify_as_path3(struct aspa_table *aspa_table, char* fname)
     uint32_t* buffer = NULL;
 
     do {
-            buffer = (uint32_t*)realloc((size_t)(plen+1)*sizeof(uint32_t));
+            buffer = (uint32_t*)realloc(buffer, (size_t)(plen+1)*sizeof(uint32_t));
             readc = fread((char*)buffer, sizeof(uint32_t), plen+1, f);
             assert(readc == (plen+1) || readc == plen);
 
