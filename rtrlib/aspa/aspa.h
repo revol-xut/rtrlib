@@ -233,6 +233,8 @@ enum as_path_verification_result {
  */
 enum as_path_verification_result as_path_verify_upstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length);
 
+enum as_path_verification_result as_path_verify_updownstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length, bool upstream);
+
 /**
  * @brief verifies a downstream as_path
  *

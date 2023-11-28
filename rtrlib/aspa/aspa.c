@@ -463,6 +463,76 @@ RTRLIB_EXPORT enum as_path_verification_result as_path_verify_upstream(struct as
 	return found_no_attestation ? AS_PATH_UNKNOWN : AS_PATH_VALID;
 }
 
+RTRLIB_EXPORT enum as_path_verification_result as_path_verify_updownstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length, bool upstream)
+{
+	
+	if (as_path_length < 1)
+		return AS_PATH_INVALID;
+	if (as_path_length == 1)
+		return AS_PATH_VALID;
+	if (as_path_length == 2 && !upstream)
+		return AS_PATH_VALID;
+
+	size_t r = as_path_length - 1;
+	enum as_providership lastHopRight;
+	while (r > 0 &&
+		(lastHopRight = as_path_hop(aspa_table, as_path[r], as_path[r-1])) == AS_PROVIDER)
+		r -= 1;
+	
+	if (upstream && r == 0)
+		return AS_PATH_VALID;
+
+	bool foundNPFromRight = false;
+	bool foundNPFromLeft = false;
+
+	size_t l = 0;
+	enum as_providership lastHopLeft;
+	if (!upstream) {
+		while (l < r &&
+			(lastHopLeft = as_path_hop(aspa_table, as_path[l], as_path[l+1])) == AS_PROVIDER)
+			l += 1;
+		assert(l <= r);
+		if (r - l <= 1)
+			return AS_PATH_VALID;
+	}
+
+	size_t rr = r - 1;
+
+	if (lastHopRight == AS_NOT_PROVIDER) {
+		foundNPFromRight = true;
+	} else while (rr > l + 1) {
+		size_t c = rr;
+		rr -= 1;
+		if (as_path_hop(aspa_table, as_path[c], as_path[rr]) == AS_NOT_PROVIDER) {
+			foundNPFromRight = true;
+			break;
+		}
+	}
+
+	if (!upstream && foundNPFromRight) {
+		size_t ll = l + 1;
+
+		if (lastHopLeft == AS_NOT_PROVIDER) {
+			foundNPFromLeft = true;
+		} else while (ll < rr) {
+			size_t c = ll;
+			ll += 1;
+			if (as_path_hop(aspa_table, as_path[c], as_path[ll]) == AS_NOT_PROVIDER) {
+				foundNPFromLeft = true;
+				break;
+			}
+		}
+	}
+
+	if (!upstream && foundNPFromLeft && foundNPFromRight)
+		return AS_PATH_INVALID;
+
+	if (upstream && foundNPFromRight)
+		return AS_PATH_INVALID;
+	
+	return AS_PATH_UNKNOWN;
+}
+
 // implements 6.2.2. "Formal Procedure for Verification of Downstream Paths" of aspa verification draft
 RTRLIB_EXPORT enum as_path_verification_result as_path_verify_downstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length)
 {
