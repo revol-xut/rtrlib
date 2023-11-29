@@ -188,10 +188,10 @@ int aspa_table_search_by_customer_asn(struct aspa_table *aspa_table, uint32_t *c
 				      struct aspa_record **result, unsigned int *result_size);
 
 
-enum as_providership {
-    AS_PROVIDER,
-    AS_NOT_PROVIDER,
-    AS_NO_ATTESTATION,
+enum aspa_hop_result {
+    ASPA_PROVIDER_PLUS,
+    ASPA_NOT_PROVIDER_PLUS,
+    ASPA_NO_ATTESTATION,
 };
 
 /**
@@ -200,26 +200,31 @@ enum as_providership {
  * Implemented according to Section 5 of IETF ASPA Verification draft v16:
  * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/
 
- * Note that the provider_asn here can also be a non-transparent route server and mutual-transit neighbor.
+ * Note that the @p provider_asn here can also be a non-transparent route server and mutual-transit neighbor.
  *
  * @param[in] aspa_table aspa_table to use
  * @param[in] customer_asn customer AS number to check
  * @param[in] provider_asn provider AS number to check
- * @return AS_PROVIDER if customer-provider relationship holds
- * @return AS_NOT_PROVIDER if customer-provider relationship doesn't hold (provider_asn not listed)
- * @return AS_NO_ATTESTATION if the customer's providers are unknown
+ * @return @c AS_PROVIDER if customer-provider relationship holds
+ * @return @c AS_NOT_PROVIDER if customer-provider relationship doesn't hold (@c provider_asn not listed)
+ * @return @c AS_NO_ATTESTATION if the customer's providers are unknown
  */
-enum as_providership as_path_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
+enum aspa_hop_result aspa_path_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
 
 
-enum as_path_verification_result {
+enum aspa_verification_result {
     AS_PATH_VALID,
     AS_PATH_INVALID,
     AS_PATH_UNKNOWN,
 };
 
+enum aspa_direction {
+	ASPA_UPSTREAM,
+	ASPA_DOWNSTREAM,
+};
+
 /**
- * @brief verifies an upstream as_path
+ * @brief verifies an upstream @c as_path
  *
  * Implemented according to Section 6.1 of IETF ASPA Verification draft v16:
  * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/
@@ -227,13 +232,13 @@ enum as_path_verification_result {
  * @param[in] aspa_table aspa_table to use
  * @param[in] as_path AS_PATH array to be validated: concatenated of BGP UPDATE's AS_PATHs, with last hop first and no AS_SETs allowed
  * @param[in] as_path_length the length of as_path array
- * @return AS_PATH_VALID if AS_PATH is valid
- * @return AS_PATH_INVALID if AS_PATH is known to be invalid
- * @return AS_PATH_UNKNOWN if missing customer-provider information to tell
+ * @return @c AS_PATH_VALID if @c AS_PATH is valid
+ * @return @c AS_PATH_INVALID if @c AS_PATH is known to be invalid
+ * @return @ cAS_PATH_UNKNOWN if missing customer-provider information to tell
  */
-enum as_path_verification_result as_path_verify_upstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length);
+enum as_path_verification_result aspa_verify_path_upstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len);
 
-enum as_path_verification_result as_path_verify_updownstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length, bool upstream);
+enum as_path_verification_result aspa_verify_path(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len, enum aspa_direction direction);
 
 /**
  * @brief verifies a downstream as_path
@@ -244,11 +249,11 @@ enum as_path_verification_result as_path_verify_updownstream(struct aspa_table *
  * @param[in] aspa_table aspa_table to use
  * @param[in] as_path AS_PATH array to be validated: concatenated of BGP UPDATE's AS_PATHs, with last hop first and no AS_SETs allowed
  * @param[in] as_path_length the length of as_path array
- * @return AS_PATH_VALID if AS_PATH is valid
- * @return AS_PATH_INVALID if AS_PATH is known to be invalid
- * @return AS_PATH_UNKNOWN if missing customer-provider information to tell
+ * @return @c AS_PATH_VALID if path is valid
+ * @return @c AS_PATH_INVALID if path is known to be invalid
+ * @return @c AS_PATH_UNKNOWN if missing customer-provider information to tell
  */
-enum as_path_verification_result as_path_verify_downstream(struct aspa_table *aspa_table, uint32_t *as_path, size_t as_path_length);
+enum as_path_verification_result aspa_verify_path_downstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len);
 
 #endif
 /** @} */
