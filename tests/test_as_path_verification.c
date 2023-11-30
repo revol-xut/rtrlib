@@ -76,17 +76,17 @@ static struct aspa_table *test_create_aspa_table()
 
 static void test_hopping(struct aspa_table* aspa_table) {
     // check that provider and not provider holds
-	assert(as_path_hop(aspa_table, 100, 200) == AS_PROVIDER);
-	assert(as_path_hop(aspa_table, 200, 100) == AS_NOT_PROVIDER);
+	assert(aspa_check_hop(aspa_table, 100, 200) == ASPA_PROVIDER_PLUS);
+	assert(aspa_check_hop(aspa_table, 200, 100) == ASPA_NOT_PROVIDER_PLUS);
 
-	assert(as_path_hop(aspa_table, 200, 300) == AS_PROVIDER);
-	assert(as_path_hop(aspa_table, 500, 999) == AS_NO_ATTESTATION);
+	assert(aspa_check_hop(aspa_table, 200, 300) == ASPA_PROVIDER_PLUS);
+	assert(aspa_check_hop(aspa_table, 500, 999) == ASPA_NO_ATTESTATION);
 
-	assert(as_path_hop(aspa_table, 999, 999) == AS_NO_ATTESTATION);
+	assert(aspa_check_hop(aspa_table, 999, 999) == ASPA_NO_ATTESTATION);
 
 	// multiple dissimilar aspas
-	assert(as_path_hop(aspa_table, 100, 201) == AS_PROVIDER);
-	assert(as_path_hop(aspa_table, 100, 202) == AS_PROVIDER);
+	assert(aspa_check_hop(aspa_table, 100, 201) == ASPA_PROVIDER_PLUS);
+	assert(aspa_check_hop(aspa_table, 100, 202) == ASPA_PROVIDER_PLUS);
 }
 
 // test multiple routes
@@ -96,71 +96,71 @@ static void test_hopping(struct aspa_table* aspa_table) {
 //   - all attested: valid
 
 static void test_upstream(struct aspa_table* aspa_table) {
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ }, 0) == AS_PATH_INVALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ }, 0) == AS_PATH_INVALID);
 
 	// paths of length 1 are valid
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100 }, 1) == AS_PATH_VALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100 }, 1) == AS_PATH_VALID);
 
 	// valid upstream paths
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100, 200 }, 2) == AS_PATH_VALID);
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 200, 300 }, 2) == AS_PATH_VALID);
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100, 200, 300 }, 3) == AS_PATH_VALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100, 200 }, 2) == AS_PATH_VALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 200, 300 }, 2) == AS_PATH_VALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100, 200, 300 }, 3) == AS_PATH_VALID);
 
 	// if one is not provider: invalid (even if unknown customer is contained)
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100, 999 }, 2) == AS_PATH_INVALID);
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100, 999, 300 }, 3) == AS_PATH_INVALID);
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 100, 999, 999 }, 3) == AS_PATH_INVALID);
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 999, 100, 999 }, 3) == AS_PATH_INVALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100, 999 }, 2) == AS_PATH_INVALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100, 999, 300 }, 3) == AS_PATH_INVALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 100, 999, 999 }, 3) == AS_PATH_INVALID);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 999, 100, 999 }, 3) == AS_PATH_INVALID);
 
 	// if one cannot be attested: is unknown
-	assert(as_path_verify_upstream(aspa_table, (uint32_t []){ 300, 400, 500, 999 }, 4) == AS_PATH_UNKNOWN);
+	assert(aspa_verify_path_upstream_alt(aspa_table, (uint32_t []){ 300, 400, 500, 999 }, 4) == AS_PATH_UNKNOWN);
 }
 
 static void test_downstream(struct aspa_table* aspa_table) {
 	// paths of length 1 <= N <= 2 are valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 999 }, 1) == AS_PATH_VALID);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 999, 998 }, 2) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 999 }, 1) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 999, 998 }, 2) == AS_PATH_VALID);
 
 	// up- or down-ramp only is valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 500, 400, 300 }, 3) == AS_PATH_VALID);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 300, 400, 500 }, 3) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 500, 400, 300 }, 3) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 300, 400, 500 }, 3) == AS_PATH_VALID);
 
 	// no providership gap
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 300, 400, 500, 400, 300 }, 5) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 300, 400, 500, 400, 300 }, 5) == AS_PATH_VALID);
 	// one not_provider inbetween
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 300, 400, 500, 502, 402, 302 }, 6) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 300, 400, 500, 502, 402, 302 }, 6) == AS_PATH_VALID);
 
 	// two highest-level hops without providership are too much
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 302, 402, 502, 502, 501, 401, 301 }, 7) == AS_PATH_INVALID);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 300, 400, 500, 999, 502, 402, 302 }, 7) == AS_PATH_UNKNOWN);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 302, 402, 502, 502, 501, 401, 301 }, 7) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 300, 400, 500, 999, 502, 402, 302 }, 7) == AS_PATH_UNKNOWN);
 
 	// one no_attestation at highest level is valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 300, 400, 500, 999 }, 4) == AS_PATH_VALID);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 999, 500, 400, 300 }, 4) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 300, 400, 500, 999 }, 4) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 999, 500, 400, 300 }, 4) == AS_PATH_VALID);
 
 	// one not_provider at highest level is valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 302, 402, 502, 999 }, 4) == AS_PATH_VALID);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 999, 502, 402, 302 }, 4) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 302, 402, 502, 999 }, 4) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 999, 502, 402, 302 }, 4) == AS_PATH_VALID);
 
 	// the last hop in the down ramp must be valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 500, 400, 300, 999 }, 4) == AS_PATH_UNKNOWN);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 500, 400, 300, 100 }, 4) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 500, 400, 300, 999 }, 4) == AS_PATH_UNKNOWN);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 500, 400, 300, 100 }, 4) == AS_PATH_INVALID);
 	// the first hop in the up ramp must be valid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 999, 300, 400, 500 }, 4) == AS_PATH_UNKNOWN);
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 100, 300, 400, 500 }, 4) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 999, 300, 400, 500 }, 4) == AS_PATH_UNKNOWN);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 100, 300, 400, 500 }, 4) == AS_PATH_INVALID);
 
 	// consecutive up-ramps are invalid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 302, 402, 502, 200, 300, 400 }, 6) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 302, 402, 502, 200, 300, 400 }, 6) == AS_PATH_INVALID);
 
 	// consecutive down-ramps are invalid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 502, 402, 302, 400, 300, 200 }, 6) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 502, 402, 302, 400, 300, 200 }, 6) == AS_PATH_INVALID);
 
 	// down- then up-ramp are invalid
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 502, 402, 302, 200, 300, 400 }, 6) == AS_PATH_INVALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 502, 402, 302, 200, 300, 400 }, 6) == AS_PATH_INVALID);
 
 	// overlapping providerships is valid
 	// 103 --> 203 <--> 303 <--> 403 <-- 304
-	assert(as_path_verify_downstream(aspa_table, (uint32_t []){ 103, 203, 303, 403, 304 }, 5) == AS_PATH_VALID);
+	assert(aspa_verify_path_downstream_alt(aspa_table, (uint32_t []){ 103, 203, 303, 403, 304 }, 5) == AS_PATH_VALID);
 }
 
 int main()

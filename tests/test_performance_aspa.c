@@ -29,18 +29,18 @@ static char *buffer_file(char *fname) {
     return string;
 }
 
-enum as_path_verification_result *verify_as_path(struct aspa_table *aspa_table, struct rtr_socket* rtr_socket, char* f, size_t batch_size){
+static enum aspa_verification_result *verify_as_path(struct aspa_table *aspa_table, struct rtr_socket* rtr_socket, char* f, size_t batch_size){
     uint32_t nwalks = *(uint32_t*)(&f[0]);
     long pos = sizeof(uint32_t);
 
     uint32_t plen = *(uint32_t*)(&f[pos]);
     pos += sizeof(uint32_t);
 
-    enum as_path_verification_result *results = (enum as_path_verification_result*)lrtr_malloc(sizeof(enum as_path_verification_result)*nwalks*plen/batch_size);
+    enum aspa_verification_result *results = (enum aspa_verification_result*)lrtr_malloc(sizeof(enum aspa_verification_result)*nwalks*plen/batch_size);
 
     for (int i = 0; i < nwalks; i++) {
         for (int j = 0; j < plen/batch_size; j++) {
-            results[i] = as_path_verify_upstream(aspa_table, &f[pos + j*batch_size], batch_size);
+            results[i] = aspa_verify_path_upstream_alt(aspa_table, &f[pos + j*batch_size], batch_size);
         }
         pos += plen*sizeof(uint32_t);
     }
@@ -48,7 +48,7 @@ enum as_path_verification_result *verify_as_path(struct aspa_table *aspa_table, 
     return results;
 }
 
-bool verify_as_path2(struct aspa_table *aspa_table, char* f)
+static bool verify_as_path2(struct aspa_table *aspa_table, char* f)
 {
     uint32_t plen = *(uint32_t*)f;
     size_t pos = sizeof(uint32_t);
@@ -56,7 +56,7 @@ bool verify_as_path2(struct aspa_table *aspa_table, char* f)
     int count = 0;
 
     do {
-        enum as_path_verification_result result = as_path_verify_upstream(aspa_table, (uint32_t*)&f[pos], plen);
+        enum aspa_verification_result result = aspa_verify_path_upstream_alt(aspa_table, (uint32_t*)&f[pos], plen);
         if (result != AS_PATH_VALID) {
             printf("%d %d %lu ", pos, plen, *(uint32_t*)(&f[pos]));
             for (uint32_t j = 0; j < plen; j++) {
@@ -77,7 +77,7 @@ bool verify_as_path2(struct aspa_table *aspa_table, char* f)
     return true;
 }
 
-bool verify_as_pathc(struct aspa_table *aspa_table)
+static bool verify_as_pathc(struct aspa_table *aspa_table)
 {
     int count = 0;
 
@@ -85,7 +85,7 @@ bool verify_as_pathc(struct aspa_table *aspa_table)
     uint32_t path[] = {7018, 6461, 9002, 6939, 3356, 1299, 3257, 174};
     //uint32_t path[] = {174, 3257, 1299, 3356, 6939, 9002, 6461, 7018};
 
-    enum as_path_verification_result result = as_path_verify_upstream(aspa_table, path, 8);
+    enum aspa_verification_result result = aspa_verify_path_upstream_alt(aspa_table, path, 8);
     if (result != AS_PATH_VALID) {
         printf("custom path is invalid\n");
         return false;
@@ -94,7 +94,7 @@ bool verify_as_pathc(struct aspa_table *aspa_table)
     return true;
 }
 
-bool verify_as_pathcud(struct aspa_table *aspa_table)
+static bool verify_as_pathcud(struct aspa_table *aspa_table)
 {
     int count = 0;
 
@@ -102,7 +102,7 @@ bool verify_as_pathcud(struct aspa_table *aspa_table)
     //uint32_t path[] = {7018, 6461, 9002, 6939, 3356, 1299, 3257, 174};
     uint32_t path[] = {174, 3257, 1299, 3356, 6939, 9002, 6461, 7018};
 
-    enum as_path_verification_result result = as_path_verify_updownstream(aspa_table, path, 8, true);
+    enum aspa_verification_result result = aspa_verify_path(aspa_table, path, 8, ASPA_UPSTREAM);
     if (result != AS_PATH_VALID) {
         printf("custom path is invalid\n");
         return false;
@@ -111,7 +111,7 @@ bool verify_as_pathcud(struct aspa_table *aspa_table)
     return true;
 }
 
-bool verify_as_path3(struct aspa_table *aspa_table, char* fname)
+static bool verify_as_path3(struct aspa_table *aspa_table, char* fname)
 {
     FILE *f = fopen(fname, "rb");
     assert(f != NULL);
@@ -130,7 +130,7 @@ bool verify_as_path3(struct aspa_table *aspa_table, char* fname)
             readc = fread((char*)buffer, sizeof(uint32_t), plen+1, f);
             assert(readc == (plen+1) || readc == plen);
 
-            enum as_path_verification_result result = as_path_verify_upstream(aspa_table, buffer, plen);
+            enum aspa_verification_result result = aspa_verify_path_upstream_alt(aspa_table, buffer, plen);
             if (result != AS_PATH_VALID) {
                 printf("%d ", plen);
                 for (uint32_t j = 0; j < plen; j++) {
@@ -183,7 +183,7 @@ static struct aspa_table *load_aspa_table(struct aspa_table* aspa_table, struct 
     return ASPA_SUCCESS;
 }
 
-void run()
+static void run()
 {
     struct aspa_table *aspa_table = (struct aspa_table*)lrtr_malloc(sizeof(struct aspa_table));
     aspa_table_init(aspa_table, NULL);

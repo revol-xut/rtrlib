@@ -209,7 +209,7 @@ enum aspa_hop_result {
  * @return @c AS_NOT_PROVIDER if customer-provider relationship doesn't hold (@c provider_asn not listed)
  * @return @c AS_NO_ATTESTATION if the customer's providers are unknown
  */
-enum aspa_hop_result aspa_path_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
+enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
 
 
 enum aspa_verification_result {
@@ -236,9 +236,9 @@ enum aspa_direction {
  * @return @c AS_PATH_INVALID if @c AS_PATH is known to be invalid
  * @return @ cAS_PATH_UNKNOWN if missing customer-provider information to tell
  */
-enum as_path_verification_result aspa_verify_path_upstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len);
+enum aspa_verification_result aspa_verify_path_upstream_alt(struct aspa_table *aspa_table, uint32_t *path, size_t len);
 
-enum as_path_verification_result aspa_verify_path(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len, enum aspa_direction direction);
+enum aspa_verification_result aspa_verify_path(struct aspa_table *aspa_table, uint32_t *path, size_t len, enum aspa_direction direction);
 
 /**
  * @brief verifies a downstream as_path
@@ -253,7 +253,7 @@ enum as_path_verification_result aspa_verify_path(struct aspa_table *aspa_table,
  * @return @c AS_PATH_INVALID if path is known to be invalid
  * @return @c AS_PATH_UNKNOWN if missing customer-provider information to tell
  */
-enum as_path_verification_result aspa_verify_path_downstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len);
+enum aspa_verification_result aspa_verify_path_downstream_alt(struct aspa_table *aspa_table, uint32_t *path, size_t len);
 
 #endif
 /** @} */

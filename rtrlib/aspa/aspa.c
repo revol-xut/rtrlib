@@ -141,8 +141,9 @@ RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
 	pthread_rwlock_destroy(&aspa_table->lock);
 }
 
-static int cmpfunc (const void * a, const void * b) {
-   return ( *(uint32_t*)a - *(uint32_t*)b );
+static int cmpfunc(const void *a, const void *b)
+{
+	return (*(uint32_t *)a - *(uint32_t *)b);
 }
 
 RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_record *record,
@@ -155,11 +156,11 @@ RTRLIB_EXPORT int aspa_table_add(struct aspa_table *aspa_table, struct aspa_reco
 
 	struct aspa_array *array;
 
-    qsort(record->provider_asns, record->provider_count, sizeof(uint32_t), cmpfunc);
+	qsort(record->provider_asns, record->provider_count, sizeof(uint32_t), cmpfunc);
 
-    for (int j = 0; j < ASPA_RECORD_CACHE_SIZE; j++) {
-        record->provider_asns_prio[j] = 0;
-    }
+	for (int j = 0; j < ASPA_RECORD_CACHE_SIZE; j++) {
+		record->provider_asns_prio[j] = 0;
+	}
 
 	// Find the socket's corresponding aspa_array.
 	// If fast lookup suceeds (rtr_socket->aspa_table == aspa_table),
@@ -385,7 +386,6 @@ static void *binsearch(const uint32_t key, uint32_t *array, size_t nmemb)
 
 		val = key - *piv;
 
-
 		if (val == 0) {
 			return piv;
 		}
@@ -397,7 +397,7 @@ static void *binsearch(const uint32_t key, uint32_t *array, size_t nmemb)
 	return NULL;
 }
 
-enum aspa_hop_result aspa_path_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn)
+enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn)
 {
 	pthread_rwlock_rdlock(&aspa_table->lock);
 
@@ -413,7 +413,6 @@ enum aspa_hop_result aspa_path_hop(struct aspa_table *aspa_table, uint32_t custo
 		if (pos == -1)
 			goto cont;
 
-
 		customer_found = 1;
 
 		struct aspa_record *record = &aspa_array->data[pos];
@@ -423,48 +422,27 @@ enum aspa_hop_result aspa_path_hop(struct aspa_table *aspa_table, uint32_t custo
 				return ASPA_PROVIDER_PLUS;
 		}
 
-		uint32_t* prov = binsearch(provider_asn, record->provider_asns, record->provider_count);
+		uint32_t *prov = binsearch(provider_asn, record->provider_asns, record->provider_count);
 
 		if (prov != NULL) {
-			for (int i = ASPA_RECORD_CACHE_SIZE-1; i > 0; i--) {
-				record->provider_asns_prio[i] = record->provider_asns_prio[i-1];
+			for (int i = ASPA_RECORD_CACHE_SIZE - 1; i > 0; i--) {
+				record->provider_asns_prio[i] = record->provider_asns_prio[i - 1];
 			}
 			record->provider_asns_prio[0] = *prov;
 			pthread_rwlock_unlock(&aspa_table->lock);
 			return ASPA_PROVIDER_PLUS;
 		}
 
-		cont:
-			node = node->next;
+	cont:
+		node = node->next;
 	}
 
 	pthread_rwlock_unlock(&aspa_table->lock);
 	return customer_found ? ASPA_NOT_PROVIDER_PLUS : ASPA_NO_ATTESTATION;
 }
 
-RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path_downstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len)
-{
-	if (len < 1)
-		return AS_PATH_INVALID;
-	if (len == 1)
-		return AS_PATH_VALID;
-
-	bool found_no_attestation = 0;
-
-	for (size_t i = 1; i < len; i++) {
-		switch(aspa_path_hop(aspa_table, as_sequence[i-1], as_sequence[i])) {
-		case ASPA_NOT_PROVIDER_PLUS:
-			return AS_PATH_INVALID;
-		case ASPA_NO_ATTESTATION:
-			found_no_attestation = 1;
-		default: break;
-		}
-	}
-
-	return found_no_attestation ? AS_PATH_UNKNOWN : AS_PATH_VALID;
-}
-
-RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len, enum aspa_direction direction)
+RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path(struct aspa_table *aspa_table, uint32_t *path, size_t len,
+							     enum aspa_direction direction)
 {
 	// Optimized AS_PATH verification algorithm using zero based array
 	// where the origin AS has index N - 1 and the latest AS in the AS_PATH
@@ -477,12 +455,12 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path(struct aspa_table *
 	if (len == 2 && direction == ASPA_DOWNSTREAM)
 		return AS_PATH_VALID;
 
+	// Find apex of up-ramp
 	size_t r = len - 1;
 	enum aspa_hop_result last_hop_right;
-	while (r > 0 &&
-		(last_hop_right = aspa_path_hop(aspa_table, as_sequence[r], as_sequence[r - 1])) == ASPA_PROVIDER_PLUS)
+	while (r > 0 && (last_hop_right = aspa_check_hop(aspa_table, path[r], path[r - 1])) == ASPA_PROVIDER_PLUS)
 		r -= 1;
-	
+
 	if (direction == ASPA_UPSTREAM && r == 0)
 		return AS_PATH_VALID;
 
@@ -492,53 +470,117 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path(struct aspa_table *
 	size_t l = 0;
 	enum aspa_hop_result last_hop_left;
 	if (direction == ASPA_DOWNSTREAM) {
+		// Find down-ramp end
 		while (l < r &&
-			(last_hop_left = aspa_path_hop(aspa_table, as_sequence[l], as_sequence[l + 1])) == ASPA_PROVIDER_PLUS)
+		       (last_hop_left = aspa_check_hop(aspa_table, path[l], path[l + 1])) == ASPA_PROVIDER_PLUS)
 			l += 1;
 		assert(l <= r);
+
+		// If gap does not exist (sharp tip) or is just a single hop wide,
+		// there's no way to create a route leak, return VALID.
 		if (r - l <= 1)
 			return AS_PATH_VALID;
 	}
 
-	size_t rr = r - 1;
+	// I. Look for nP+ in the right-to-left/upwards direction
+	// Check if there's a nP+ hop in the gap from the right (facing left/up).
+	// a, The next hop right after the up-ramp was already retrieved from the database,
+	//    so just check if that hop was nP+.
+	// b, Also, don't check last hop before down-ramp starts
+	//    because there must be a hop of space in order for two
+	//    nP+ hops to oppose each other.
+	// c, RR points to the left end of the hop last checked.
+	// d, Checking stops if the hop is nP+.
 
+	//        Last chance of finding a relevant nP+ hop
+	//           /
+	//   L      /\                  R
+	//   * -- * -- * . . . . . * -- *
+	//  /    L+1              R-1    \
+	// *       |<------------------|  *
+	// 0                             N-1
+
+	size_t rr = r - 1;
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
-	} else while (rr > l + 1) {
-		size_t c = rr;
-		rr -= 1;
-		if (aspa_path_hop(aspa_table, as_sequence[c], as_sequence[rr]) == ASPA_NOT_PROVIDER_PLUS) {
-			found_nP_from_right = true;
+	} else
+		while (rr > l + 1) {
+			size_t c = rr;
+			rr -= 1;
+			if (aspa_check_hop(aspa_table, path[c], path[rr]) == ASPA_NOT_PROVIDER_PLUS) {
+				found_nP_from_right = true;
+				break;
+			}
+		}
+
+	// II. Look for nP+ in the left-to-right/down direction
+	// Check if there's a nP+ hop in the gap from the right (facing left/down).
+	if (direction == ASPA_DOWNSTREAM && found_nP_from_right) {
+		// a, There's no need to check for an nP+ from the left if we
+		//    didn't find an nP+ from the right before.
+		// b, The next hop right after the down-ramp was already retrieved from the database,
+		//    so just check if that hop was nP+.
+		// c, LL points to the right end of the hop last checked.
+		// d, Checking stops if the hop is nP+.
+		//
+		//                    Last chance of finding a relevant nP+ hop
+		//                       /
+		//  L    LL             /\
+		//   * -- * . . . . . * -- * . . . . .
+		//  /    L+1               RR
+		// *       |------------->|
+		// 0
+		size_t ll = l + 1;
+		if (last_hop_left == ASPA_NOT_PROVIDER_PLUS) {
+			found_nP_from_left = true;
+		} else
+			while (ll < rr) {
+				size_t c = ll;
+				ll += 1;
+				if (aspa_check_hop(aspa_table, path[c], path[ll]) == ASPA_NOT_PROVIDER_PLUS) {
+					found_nP_from_left = true;
+					break;
+				}
+			}
+	}
+
+	// If two nP+ occur opposing directions, return INVALID.
+	if (direction == ASPA_DOWNSTREAM && found_nP_from_left && found_nP_from_left)
+		return AS_PATH_INVALID;
+
+	// If nP+ occurs upstream customer-provider chain, return INVALID.
+	if (direction == ASPA_UPSTREAM && found_nP_from_left)
+		return AS_PATH_INVALID;
+
+	return AS_PATH_UNKNOWN;
+}
+
+RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path_upstream_alt(struct aspa_table *aspa_table, uint32_t *path,
+									  size_t len)
+{
+	if (len < 1)
+		return AS_PATH_INVALID;
+	if (len == 1)
+		return AS_PATH_VALID;
+
+	bool found_no_attestation = 0;
+
+	for (size_t i = 1; i < len; i++) {
+		switch (aspa_check_hop(aspa_table, path[i - 1], path[i])) {
+		case ASPA_NOT_PROVIDER_PLUS:
+			return AS_PATH_INVALID;
+		case ASPA_NO_ATTESTATION:
+			found_no_attestation = 1;
+		default:
 			break;
 		}
 	}
 
-	if (direction == ASPA_DOWNSTREAM && found_nP_from_right) {
-		size_t ll = l + 1;
-
-		if (last_hop_left == ASPA_NOT_PROVIDER_PLUS) {
-			found_nP_from_left = true;
-		} else while (ll < rr) {
-			size_t c = ll;
-			ll += 1;
-			if (aspa_path_hop(aspa_table, as_sequence[c], as_sequence[ll]) == ASPA_NOT_PROVIDER_PLUS) {
-				found_nP_from_left = true;
-				break;
-			}
-		}
-	}
-
-	if (direction == ASPA_DOWNSTREAM && found_nP_from_left && found_nP_from_left)
-		return AS_PATH_INVALID;
-
-	if (direction == ASPA_UPSTREAM && found_nP_from_left)
-		return AS_PATH_INVALID;
-	
-	return AS_PATH_UNKNOWN;
+	return found_no_attestation ? AS_PATH_UNKNOWN : AS_PATH_VALID;
 }
 
-// implements 6.2.2. "Formal Procedure for Verification of Downstream Paths" of aspa verification draft
-RTRLIB_EXPORT enum aspa_verification_result aspa_verify_downstream_alt(struct aspa_table *aspa_table, uint32_t *as_sequence, size_t len)
+RTRLIB_EXPORT enum aspa_verification_result aspa_verify_path_downstream_alt(struct aspa_table *aspa_table,
+									    uint32_t *path, size_t len)
 {
 	// zero length as_paths are invalid (design choice)
 	if (len < 1)
@@ -553,7 +595,7 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_downstream_alt(struct as
 	//     i.e. u_min marks the upper end of the lowest not-customer-of-hop
 	size_t u_min = len;
 	for (size_t u = 1; u < len; u++) {
-		if (aspa_path_hop(aspa_table, as_sequence[u-1], as_sequence[u]) == ASPA_NOT_PROVIDER_PLUS) {
+		if (aspa_check_hop(aspa_table, path[u - 1], path[u]) == ASPA_NOT_PROVIDER_PLUS) {
 			u_min = u;
 			break;
 		}
@@ -564,7 +606,7 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_downstream_alt(struct as
 	//     i.e. v_max marks the upper end of the lowest not-provider-of-hop
 	size_t v_max = 0;
 	for (size_t v = len - 1; v >= 1; v--) {
-		if (aspa_path_hop(aspa_table, as_sequence[v], as_sequence[v-1]) == ASPA_NOT_PROVIDER_PLUS) {
+		if (aspa_check_hop(aspa_table, path[v], path[v - 1]) == ASPA_NOT_PROVIDER_PLUS) {
 			v_max = v;
 			break;
 		}
@@ -576,13 +618,12 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_downstream_alt(struct as
 	if (u_min < v_max)
 		return AS_PATH_INVALID;
 
-
 	// find up-ramp (streak of upstream providerships):
 	//     smallest K such that for all 1 <= i <= K,
 	//     the hop i -> i+1 is customer -> provider
 	size_t K = 0;
 	for (size_t i = 1; i < len; i++) {
-		if (aspa_path_hop(aspa_table, as_sequence[i-1], as_sequence[i]) == ASPA_PROVIDER_PLUS)
+		if (aspa_check_hop(aspa_table, path[i - 1], path[i]) == ASPA_PROVIDER_PLUS)
 			K++;
 		else
 			break;
@@ -593,7 +634,7 @@ RTRLIB_EXPORT enum aspa_verification_result aspa_verify_downstream_alt(struct as
 	//     the hop j -> j+1 is provider -> customer
 	size_t L = len - 1;
 	for (size_t j = len - 2; j >= 0; j--) {
-		if (aspa_path_hop(aspa_table, as_sequence[j+1], as_sequence[j]) == ASPA_PROVIDER_PLUS)
+		if (aspa_check_hop(aspa_table, path[j + 1], path[j]) == ASPA_PROVIDER_PLUS)
 			L--;
 		else
 			break;
