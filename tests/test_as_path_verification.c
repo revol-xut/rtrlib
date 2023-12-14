@@ -167,6 +167,813 @@ static void test_downstream(struct aspa_table* aspa_table) {
 
 
 
+/**
+ * Example 1 (downstream) (valid)
+ *
+ * as_path: 20, 30, 40, 70, 80
+ *
+ *          30   40
+ *  10  20           70
+ *                       80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_1()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 40, 70, 80 }, 5) == ASPA_AS_PATH_VALID);
+}
+
+
+/**
+ * Example 2 (downstream) (unknown)
+ *
+ * as_path: 20, 30, 90, 40, 70, 80
+ *
+ *          30       40
+ *  10   20       90      70
+ *                           80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *   90: 30, 40
+ *
+ */
+static void test_verify_example_2()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(90, (uint32_t []){ 30, 40 }, 2), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 90, 40, 70, 80 }, 6) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 2b (downstream) (invalid)
+ *
+ * as_path: 20, 30, 90, 40, 70, 80
+ *
+ *          30*      40*
+ *  10  20       90      70
+ *                           80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *   90: 30, 40
+ *   30:   (none)
+ *   40:   (none)
+ *
+ */
+static void test_verify_example_2b()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(90, (uint32_t []){ 30, 40 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 90, 40, 70, 80 }, 6) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 3a (downstream) (unknown)
+ *
+ * as_path: 20, 30, 90, 40, 70, 80
+ *
+ *          30   90  40
+ *      20               70
+ *  10                       80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_3a()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 90, 40, 70, 80 }, 6) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 3b (downstream) (unknown)
+ *
+ * as_path: 20, 30, 90, 100, 40, 70, 80
+ *
+ *          30   90  100 40
+ *  10  20                 70
+ *                            80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_3b()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 90, 100, 40, 70, 80 }, 7) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 3c (downstream) (invalid)
+ *
+ * as_path: 20, 30, 90, 100, 40, 70, 80
+ *
+ *       30*  90  100  40*
+ *     20                 70
+ *  10                      80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 40
+ *   20: 30
+ *   30:   (none)
+ *   40:   (none)
+ *
+ */
+static void test_verify_example_3c()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 90, 100, 40, 70, 80 }, 7) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 3d (downstream) (unknown)
+ *
+ * as_path: 20, 30, 40, 100, 90, 70, 80
+ *
+ *         30*  40* 100? 90?
+ *  10  20                  70
+ *                            80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 90
+ *   20: 30
+ *   30:   (none)
+ *   40:   (none)
+ *
+ */
+static void test_verify_example_3d()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 90 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 40, 100, 90, 70, 80 }, 7) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 3f (downstream) (unknown)
+ *
+ * as_path: 20, 30, 40, 100, 90, 70, 80
+ *
+ *          30   40  100 90
+ *  10  20                 70
+ *                            80 (origin)
+ *
+ * customer-providers:
+ *   80: 70
+ *   70: 90
+ *   20: 30
+ *   100:   (none)
+ *   40:   (none)
+ *
+ */
+static void test_verify_example_3f()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 90 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(100, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 40, 100, 90, 70, 80 }, 7) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 4 (upstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60, 70, 80
+ *
+ *  10                               80 (origin)
+ *    20   30    40    50   60   70
+ *
+ * customer-providers:
+ *   70: 80
+ *
+ */
+static void test_verify_example_4()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 80 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40, 50, 60, 70, 80 }, 7) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 4-fixed (upstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60, 70, 80
+ *
+ *  10                      80 (origin)
+ *    20                70
+ *      30  40  50  60
+ *
+ * customer-providers:
+ *   70: 80
+ *   60: 70
+ *   30: 20
+ *
+ */
+static void test_verify_example_4_fixed()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(70, (uint32_t []){ 80 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(60, (uint32_t []){ 70 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 20 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40, 50, 60, 70, 80 }, 7) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 5 (upstream) (valid)
+ *
+ * as_path: 20, 30, 40
+ *
+ * 10  20
+ *        30
+ *           40 (origin)
+ *
+ * customer-providers:
+ *   40: 30
+ *   30: 20
+ *
+ */
+static void test_verify_example_5()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 20 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40 }, 3) == ASPA_AS_PATH_VALID);
+}
+
+
+/**
+ * Example 6 (downstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120
+ *
+ *         50         90
+ *       40  60 70 80   100
+ *     30                  110
+ *   20                       120
+ * 10
+ *
+ * customer-providers:
+ *   120: 110
+ *   110: 100
+ *   100: 90
+ *   80: 90
+ *   60: 50
+ *   40: 50
+ *   30: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_6()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(120, (uint32_t []){ 110 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(110, (uint32_t []){ 100 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(100, (uint32_t []){ 90 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 90 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(60, (uint32_t []){ 50 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 50 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120 }, 11) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 7 (downstream) (unknown)
+ *
+ * as_path: 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140
+ *
+ * read from right: 100 -U-> 90 -U-> 80 -U-> 70 -U-> 60 -U-> 50
+ * read from left: 50 -U-> 60 -U-> 70 -U-> 80 -P+-> 90 -P+-> 100
+ *
+ *                        100
+ *                     90     110
+ *         50 60 70 80           120
+ *       40                         130
+ *     30                              140
+ *   20
+ * 10
+ *
+ * customer-providers:
+ *   20: 30
+ *   30: 40
+ *   40: 50
+ *   80: 90
+ *   90: 100
+ *   110: 100
+ *   120: 110
+ *   130: 120
+ *   140: 130
+ *
+ */
+static void test_verify_example_7()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 50 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(80, (uint32_t []){ 90 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(90, (uint32_t []){ 100 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(110, (uint32_t []){ 100 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(120, (uint32_t []){ 110 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(130, (uint32_t []){ 120 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(140, (uint32_t []){ 130 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140 }, 13) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 8 (downstream) (valid)
+ *
+ * as_path: 20
+ *
+ *   20
+ * 10
+ *
+ * customer-providers:
+ * (none)
+ *
+ */
+static void test_verify_example_8()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20 }, 1) == ASPA_AS_PATH_VALID);
+}
+
+
+/**
+ * Example 9 (upstream) (valid)
+ *
+ * as_path: 20
+ *
+ * 10
+ *   20
+ *
+ * customer-providers:
+ * (none)
+ *
+ */
+static void test_verify_example_9()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20 }, 1) == ASPA_AS_PATH_VALID);
+}
+
+
+/**
+ * Example 11 (downstream) (valid)
+ *
+ * as_path: 20, 30
+ *
+ *   20 30
+ *
+ * customer-providers:
+ *   20:   (none)
+ *   30:   (none)
+ *
+ */
+static void test_verify_example_11()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_DOWNSTREAM, (uint32_t []){ 20, 30 }, 2) == ASPA_AS_PATH_VALID);
+}
+
+
+/**
+ * Example 12 (upstream) (unknown)
+ *
+ * as_path: 20, 30
+ *
+ *   20 30
+ *
+ * customer-providers:
+ * (none)
+ *
+ */
+static void test_verify_example_12()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30 }, 2) == ASPA_AS_PATH_UNKNOWN);
+}
+
+
+/**
+ * Example 13 (upstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60
+ *
+ *   20
+ *      30
+ *         40  50
+ *               60
+ *
+ * customer-providers:
+ *   60: 50
+ *   50:   (none)
+ *   40: 30
+ *   30: 20
+ *   20:   (none)
+ *
+ */
+static void test_verify_example_13()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(60, (uint32_t []){ 50 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(50, (uint32_t []){  }, 0), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 20 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40, 50, 60 }, 5) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 14 (upstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60
+ *
+ *     30 <> 40 <> 50 <> 60
+ *  20
+ *
+ * customer-providers:
+ *   60: 50
+ *   50: 40, 60
+ *   40: 30, 50
+ *   30: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_14()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(60, (uint32_t []){ 50 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(50, (uint32_t []){ 40, 60 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30, 50 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40, 50, 60 }, 5) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 15 (upstream) (invalid)
+ *
+ * as_path: 20, 30, 40, 50, 60
+ *
+ *       30 <> 40 <> 50 <> 60
+ *   20
+ *
+ * customer-providers:
+ *   60: 50, 20
+ *   50: 40, 60
+ *   40: 30, 50
+ *   30: 40
+ *   20: 30
+ *
+ */
+static void test_verify_example_15()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(60, (uint32_t []){ 50, 20 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(50, (uint32_t []){ 40, 60 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30, 50 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(30, (uint32_t []){ 40 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 20, 30, 40, 50, 60 }, 5) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 16 (upstream) (invalid)
+ *
+ * as_path: 10, 20, 30, 40
+ *
+ *     20   30
+ * 10           40
+ *
+ * customer-providers:
+ *   10: 20
+ *   20: 100
+ *   40: 30
+ *
+ */
+static void test_verify_example_16()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(10, (uint32_t []){ 20 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 100 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 10, 20, 30, 40 }, 4) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 17 (upstream) (invalid)
+ *
+ * as_path: 10, 20, 30, 40
+ *
+ *                 X
+ *     20      40
+ * 10      30
+ *
+ * customer-providers:
+ *   10: 20
+ *   20: 100
+ *   40: 30, 50
+ *   50: 40
+ *
+ */
+static void test_verify_example_17()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(10, (uint32_t []){ 20 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){ 100 }, 1), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(40, (uint32_t []){ 30, 50 }, 2), rtr_socket, false);
+	aspa_table_add(aspa_table, create_aspa_record(50, (uint32_t []){ 40 }, 1), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 10, 20, 30, 40 }, 4) == ASPA_AS_PATH_INVALID);
+}
+
+
+/**
+ * Example 18 (upstream) (invalid)
+ *
+ * as_path: 30, 20, 40
+ *
+ *  30  20*  40
+ *
+ * customer-providers:
+ *   20:   (none)
+ *
+ */
+static void test_verify_example_18()
+{
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	assert(aspa_table != NULL);
+	aspa_table_init(aspa_table, NULL);
+
+	struct rtr_socket *rtr_socket = lrtr_malloc(sizeof(*rtr_socket));
+	assert(rtr_socket != NULL);
+	rtr_socket->aspa_table = aspa_table;
+	rtr_socket->aspa_array = NULL;
+
+	aspa_table_add(aspa_table, create_aspa_record(20, (uint32_t []){  }, 0), rtr_socket, false);
+
+	assert(aspa_verify_as_path(aspa_table, ASPA_UPSTREAM, (uint32_t []){ 30, 20, 40 }, 3) == ASPA_AS_PATH_INVALID);
+}
 
 static void test_single_collapse(uint32_t input[], size_t input_len, uint32_t output[], size_t output_len)
 {
@@ -196,5 +1003,30 @@ int main()
 	test_hopping(aspa_table);
 	test_upstream(aspa_table);
 	test_downstream(aspa_table);
+
+	test_verify_example_1();
+	test_verify_example_2();
+	test_verify_example_2b();
+	test_verify_example_3a();
+	test_verify_example_3b();
+	test_verify_example_3c();
+	test_verify_example_3d();
+	test_verify_example_3f();
+	test_verify_example_4();
+	test_verify_example_4_fixed();
+	test_verify_example_5();
+	test_verify_example_6();
+	test_verify_example_7();
+	test_verify_example_8();
+	test_verify_example_9();
+	test_verify_example_11();
+	test_verify_example_12();
+	test_verify_example_13();
+	test_verify_example_14();
+	test_verify_example_15();
+	test_verify_example_16();
+	test_verify_example_17();
+	test_verify_example_18();
+
 	test_collapse();
 }
