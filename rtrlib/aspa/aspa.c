@@ -374,7 +374,7 @@ enum aspa_verification_result aspa_verify_upstream(struct aspa_table *aspa_table
 	while (r > 0 &&
 			(last_hop_right = aspa_check_hop(aspa_table, as_path[r], as_path[r - 1]))
 				== ASPA_PROVIDER_PLUS)
-		r -= 1;
+		r--;
 
 	if (r == 0)
 		return ASPA_AS_PATH_VALID;
@@ -402,7 +402,7 @@ enum aspa_verification_result aspa_verify_upstream(struct aspa_table *aspa_table
 	 *
 	 */
 
-	size_t rr = r - 1;
+	size_t rr = r;
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
@@ -432,9 +432,7 @@ enum aspa_verification_result aspa_verify_downstream(struct aspa_table *aspa_tab
 	// Doesn't check any hop twice.
 	if (len < 1)
 		return ASPA_AS_PATH_INVALID;
-	if (len == 1)
-		return ASPA_AS_PATH_VALID;
-	if (len == 2)
+	if (len <= 2)
 		return ASPA_AS_PATH_VALID;
 
 	// Find apex of up-ramp
@@ -484,11 +482,11 @@ enum aspa_verification_result aspa_verify_downstream(struct aspa_table *aspa_tab
 	 *
 	 */
 
-	size_t rr = r - 1;
+	size_t rr = r;
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
-		while (rr > l) {
+		while (rr > l + 1) {
 			size_t c = rr;
 			rr--;
 			if (aspa_check_hop(aspa_table, as_path[c], as_path[rr])
