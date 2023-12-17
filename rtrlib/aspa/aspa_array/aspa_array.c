@@ -141,15 +141,20 @@ struct aspa_record *aspa_array_search(struct aspa_array *vector, uint32_t custom
 		size_t center = (left + right) >> 1;
 		uint32_t center_value = vector->data[center].customer_asn;
 
+		// success found the value
 		if (center_value == customer_asn) {
-			// success found the value
 			return &vector->data[center];
-		} else if (center_value > customer_asn) {
-			// value should be on the left side
-			right = center - 1;
-		} else {
-			// value should be on the right side
+
+		// value should be on the right side
+		} else if (center_value < customer_asn) {
 			left = center + 1;
+
+		// value should be on the left side
+		} else if (center == 0) {
+			// value cannot be left of index 0
+			return NULL;
+		} else {
+			right = center - 1;
 		}
 	}
 
