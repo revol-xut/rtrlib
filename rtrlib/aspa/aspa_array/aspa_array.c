@@ -112,16 +112,16 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 		}
 	}
 
-	// No need to move if last element
+	// only move on insertion before the last index
 	if (index < array->size) {
 		size_t trailing = (array->size - index) * sizeof(struct aspa_record);
 
 		/*             trailing
-				   /-------------\
+		           /-------------\
 		 #3 #8 #11 #24 #30 #36 #37
 		 #3 #8 #11  *  #24 #30 #36 #37
 		            ^   ^
-				index   index + 1
+		        index   index + 1
 		 */
 		memmove(&array->data[index + 1], &array->data[index], trailing);
 	}
@@ -133,7 +133,7 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 
 enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index)
 {
-	if (index >= array->size || array->size == 0)
+	if (index >= array->size) // or array->size == 0
 		return ASPA_ERROR;
 
 	// No need to move if last element
