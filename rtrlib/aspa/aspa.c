@@ -97,7 +97,6 @@ static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, st
 		return ASPA_SUCCESS;
 
 	struct aspa_array *array = (*node)->aspa_array;
-	struct rtr_socket *socket = (*node)->rtr_socket;
 
 	if (!array)
 		// Doesn't exist anymore
@@ -105,6 +104,8 @@ static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, st
 
 	// Notify clients about these records being removed
 	if (notify) {
+		struct rtr_socket *socket = (*node)->rtr_socket;
+
 		for (size_t i = 0; i < array->size; i++) {
 			aspa_table_notify_clients(aspa_table, aspa_array_get_record(array, i), socket, false);
 		}
@@ -239,16 +240,15 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 
 #ifdef ASPA_UPDATE_IN_PLACE
 		if (revert && current->index == (*failed_operation)->index)
-			break;
+			// all operations up to (*failed_operation)->index will have been undone
+			return ASPA_SUCCESS;
 #endif
-
-		struct aspa_update_operation *next = (i < len - 1) ? &operations[i + 1] : NULL;
 
 #ifndef ASPA_UPDATE_IN_PLACE
-		if (array) {
+		if (array && array->data) {
 #endif
 			while (existing_i < array->size &&
-			       aspa_array_get_record(array, existing_i)->customer_asn < current->record.customer_asn) {
+			       array->data[existing_i]->customer_asn < current->record.customer_asn) {
 				// Skip over records untouched by these add/remove operations
 				existing_i++;
 			}
@@ -276,7 +276,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			return ASPA_DUPLICATE_RECORD;
 		}
 
-		// $CAS has already been added
+		// non-withdrawn record with customer_asn exists
 		// Error: Duplicate Add.
 		if (op_type == ASPA_REMOVE &&
 		    (!existing_record || current->record.customer_asn != existing_record->customer_asn)) {
@@ -286,6 +286,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 
 		// Operations contains (ADD $CAS [..], REMOVE $CAS) and $CAS is not stored
 		// No-op, skip next.
+		struct aspa_update_operation *next = (i < len - 1) ? &operations[i + 1] : NULL;
 		if (next && current->type == ASPA_ADD && next->type == ASPA_REMOVE &&
 		    next->record.customer_asn == current->record.customer_asn &&
 		    (!existing_record || current->record.customer_asn != existing_record->customer_asn)) {
