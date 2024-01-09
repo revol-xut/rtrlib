@@ -7,15 +7,14 @@
 * Website; http://rtrlib.realmv6.org/
 */
 
-
-#include "rtrlib/aspa/aspa_array/aspa_array.h"
 #include "rtrlib/aspa/aspa.h"
+#include "rtrlib/aspa/aspa_array/aspa_array.h"
 #include "rtrlib/aspa/aspa_private.h"
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/lib/convert_byte_order_private.h"
+#include "rtrlib/rtr/packets_private.h"
 #include "rtrlib/rtr/rtr_pdus.h"
 #include "rtrlib/transport/transport.h"
-#include "rtrlib/rtr/packets_private.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -265,7 +264,6 @@ int main(void)
 }
 */
 
-
 char *data;
 size_t data_size;
 size_t data_index;
@@ -273,33 +271,34 @@ size_t data_index;
 #define c16(X) lrtr_convert_short(TO_HOST_HOST_BYTE_ORDER, X)
 #define c32(X) lrtr_convert_long(TO_HOST_HOST_BYTE_ORDER, X)
 
-static int custom_send(const struct tr_socket *socket, const void *pdu,
-		const size_t len, const time_t timeout) {
+static int custom_send(const struct tr_socket *socket, const void *pdu, const size_t len, const time_t timeout)
+{
 	printf("sent %lu bytes\n", len);
 
 	const struct pdu_error *err = pdu;
 	if (err->type == 10) {
-		uint32_t* errlen = (uint32_t*)((char*)err->rest + err->len_enc_pdu);
-		if ((char*)errlen < (char*)err + c32(err->len)) {
-			printf("err msg: %.*s\n", *errlen, (char*)(errlen+1));
+		uint32_t *errlen = (uint32_t *)((char *)err->rest + err->len_enc_pdu);
+		if ((char *)errlen < (char *)err + c32(err->len)) {
+			printf("err msg: %.*s\n", *errlen, (char *)(errlen + 1));
 		}
 	}
 	return len;
 }
 
-static int custom_recv(const struct tr_socket *socket, const void *buf,
-		const size_t len, const time_t timeout) {
+static int custom_recv(const struct tr_socket *socket, const void *buf, const size_t len, const time_t timeout)
+{
 	size_t rlen = len;
 	if (data_index + rlen > data_size)
-		rlen = data_size-data_index;
+		rlen = data_size - data_index;
 
-	memcpy((char*)buf, data+data_index, rlen);
+	memcpy((char *)buf, data + data_index, rlen);
 	data_index += rlen;
 	printf("read %lu bytes\n", rlen);
 	return rlen;
 }
 
-static void test_socket_aspa_pdu_parse() {
+static void test_socket_aspa_pdu_parse()
+{
 	struct tr_socket *tr_socket = lrtr_malloc(sizeof(struct tr_socket));
 	tr_socket->recv_fp = (tr_recv_fp)&custom_recv;
 	tr_socket->send_fp = (tr_send_fp)&custom_send;
@@ -309,23 +308,21 @@ static void test_socket_aspa_pdu_parse() {
 	socket->state = RTR_SYNC;
 	socket->tr_socket = tr_socket;
 
-	data = lrtr_malloc(
-			sizeof(struct pdu_cache_response) +
-			sizeof(struct pdu_end_of_data_v1_v2) +
-			sizeof(struct pdu_aspa));
+	data = lrtr_malloc(sizeof(struct pdu_cache_response) + sizeof(struct pdu_end_of_data_v1_v2) +
+			   sizeof(struct pdu_aspa));
 
 	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
 	assert(aspa_table);
 	aspa_table_init(aspa_table, NULL);
 	socket->aspa_table = aspa_table;
 
-	struct pdu_cache_response *cache_response = (struct pdu_cache_response*)data;
+	struct pdu_cache_response *cache_response = (struct pdu_cache_response *)data;
 	cache_response->ver = 2;
 	cache_response->type = 3;
 	cache_response->session_id = 0;
 	cache_response->len = c32(8);
 
-	struct pdu_aspa *aspa = (struct pdu_aspa*)(data + sizeof(*cache_response));
+	struct pdu_aspa *aspa = (struct pdu_aspa *)(data + sizeof(*cache_response));
 	aspa->ver = 2;
 	aspa->type = 11;
 	aspa->zero = 0;
@@ -336,7 +333,7 @@ static void test_socket_aspa_pdu_parse() {
 	aspa->customer_asn = c32(100);
 	aspa->provider_asns[0] = c32(200);
 
-	struct pdu_end_of_data_v1_v2 *eod = (struct pdu_end_of_data_v1_v2*)((char*)(aspa) + c32(aspa->len));
+	struct pdu_end_of_data_v1_v2 *eod = (struct pdu_end_of_data_v1_v2 *)((char *)(aspa) + c32(aspa->len));
 	eod->ver = 2;
 	eod->type = 7;
 	eod->session_id = 0;
@@ -346,12 +343,13 @@ static void test_socket_aspa_pdu_parse() {
 	eod->retry_interval = 0;
 	eod->expire_interval = 0;
 
-	data_size = ((char*)eod-data)+sizeof(*eod);
-	
+	data_size = ((char *)eod - data) + sizeof(*eod);
+
 	rtr_sync(socket);
 }
 
-int main() {
+int main()
+{
 	test_socket_aspa_pdu_parse();
 	return 0;
 }
