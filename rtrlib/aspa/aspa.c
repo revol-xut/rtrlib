@@ -248,7 +248,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 		if (array && array->data) {
 #endif
 			while (existing_i < array->size &&
-			       array->data[existing_i]->customer_asn < current->record.customer_asn) {
+			       array->data[existing_i].customer_asn < current->record.customer_asn) {
 				// Skip over records untouched by these add/remove operations
 				existing_i++;
 			}
