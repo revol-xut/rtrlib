@@ -280,6 +280,7 @@ static void test_regular(struct rtr_socket *socket)
 
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1100, (uint32_t[]){1101, 1102, 1103, 1104}, 4);
+	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1101, (uint32_t[]){1100, 1102, 1103, 1104}, 4);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 2200, (uint32_t[]){2201, 2202, 2203, 2204}, 4);
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 437);
 	assert(rtr_sync(socket) == RTR_SUCCESS);
@@ -288,15 +289,38 @@ static void test_regular(struct rtr_socket *socket)
 			   (struct aspa_record){.customer_asn = 1100,
 						.provider_count = 4,
 						.provider_asns = (uint32_t[]){1101, 1102, 1103, 1104}},
+			   (struct aspa_record){.customer_asn = 1101,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){1100, 1102, 1103, 1104}},
 			   (struct aspa_record){.customer_asn = 2200,
 						.provider_count = 4,
 						.provider_asns = (uint32_t[]){2201, 2202, 2203, 2204}},
 		   },
-		   2);
+		   3);
+
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 3300, (uint32_t[]){3301, 3302, 3303, 3304}, 4);
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+	test_table(socket,
+		   (struct aspa_record[]){
+			   (struct aspa_record){.customer_asn = 1100,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){1101, 1102, 1103, 1104}},
+			   (struct aspa_record){.customer_asn = 1101,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){1100, 1102, 1103, 1104}},
+			   (struct aspa_record){.customer_asn = 2200,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){2201, 2202, 2203, 2204}},
+			   (struct aspa_record){.customer_asn = 3300,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){3301, 3302, 3303, 3304}},
+		   },
+		   4);
 
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, 2200, (uint32_t[]){}, 0);
-	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 3300, (uint32_t[]){3301, 3302, 3303, 3304}, 4);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 0, (uint32_t[]){}, 0);
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 	assert(rtr_sync(socket) == RTR_SUCCESS);
@@ -307,11 +331,14 @@ static void test_regular(struct rtr_socket *socket)
 			(struct aspa_record){.customer_asn = 1100,
 					     .provider_count = 4,
 					     .provider_asns = (uint32_t[]){1101, 1102, 1103, 1104}},
+			(struct aspa_record){.customer_asn = 1101,
+					     .provider_count = 4,
+					     .provider_asns = (uint32_t[]){1100, 1102, 1103, 1104}},
 			(struct aspa_record){.customer_asn = 3300,
 					     .provider_count = 4,
 					     .provider_asns = (uint32_t[]){3301, 3302, 3303, 3304}},
 		},
-		3);
+		4);
 }
 
 static void test_corrupt(struct rtr_socket *socket)
@@ -338,11 +365,14 @@ static void test_corrupt(struct rtr_socket *socket)
 			(struct aspa_record){.customer_asn = 1100,
 					     .provider_count = 4,
 					     .provider_asns = (uint32_t[]){1101, 1102, 1103, 1104}},
+			(struct aspa_record){.customer_asn = 1101,
+					     .provider_count = 4,
+					     .provider_asns = (uint32_t[]){1100, 1102, 1103, 1104}},
 			(struct aspa_record){.customer_asn = 3300,
 					     .provider_count = 4,
 					     .provider_asns = (uint32_t[]){3301, 3302, 3303, 3304}},
 		},
-		3);
+		4);
 }
 
 static void reset_data()
