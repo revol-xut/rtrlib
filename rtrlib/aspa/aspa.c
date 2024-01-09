@@ -194,7 +194,7 @@ static enum aspa_status append_to_set_array(uint32_t ***sets, size_t *size, size
 		*sets = tmp;
 	}
 
-	*sets[*size] = new_set;
+	(*sets)[*size] = new_set;
 	*size += 1;
 	return ASPA_SUCCESS;
 }
@@ -235,8 +235,20 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 	size_t unused_capacity = 0;
 	size_t existing_i = 0;
 
+#ifndef ASPA_UPDATE_IN_PLACE
+	uint32_t last_asn = 0;
+	bool current_withdrawn = false;
+#endif
+
+	struct aspa_update_operation *current;
 	for (size_t i = 0; i < len; i++) {
-		struct aspa_update_operation *current = &operations[i];
+		current = &operations[i];
+
+#ifndef ASPA_UPDATE_IN_PLACE
+		if (current->record.customer_asn != last_asn)
+			current_withdrawn = false;
+		last_asn = current->record.customer_asn;
+#endif
 
 #ifdef ASPA_UPDATE_IN_PLACE
 		if (revert && current->index == (*failed_operation)->index)
@@ -250,6 +262,12 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			while (existing_i < array->size &&
 			       array->data[existing_i].customer_asn < current->record.customer_asn) {
 				// Skip over records untouched by these add/remove operations
+#ifndef ASPA_UPDATE_IN_PLACE
+				if (aspa_array_append(new_array, &array->data[existing_i]) != ASPA_SUCCESS) {
+					*failed_operation = current;
+					return ASPA_ERROR;
+				}
+#endif
 				existing_i++;
 			}
 #ifndef ASPA_UPDATE_IN_PLACE
@@ -268,16 +286,19 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),
 			      compare_asns);
 
-		// $CAS is not stored
-		// Error: Duplicate Remove.
+		// non-withdrawn record with customer_asn exists
+		// Error: Duplicate Add.
 		if (op_type == ASPA_ADD && existing_record &&
+#ifndef ASPA_UPDATE_IN_PLACE
+		    !current_withdrawn &&
+#endif
 		    current->record.customer_asn == existing_record->customer_asn) {
 			*failed_operation = current;
 			return ASPA_DUPLICATE_RECORD;
 		}
 
-		// non-withdrawn record with customer_asn exists
-		// Error: Duplicate Add.
+		// customer_asn is not stored
+		// Error: Removal of non-existing.
 		if (op_type == ASPA_REMOVE &&
 		    (!existing_record || current->record.customer_asn != existing_record->customer_asn)) {
 			*failed_operation = current;
@@ -347,9 +368,20 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 				// Replace record in operation so it could be undone later.
 				current->record = *existing_record;
 			}
+#else
+			current_withdrawn = true;
 #endif
 		}
 	}
+
+#ifndef ASPA_UPDATE_IN_PLACE
+	for (existing_i++; existing_i < array->size; existing_i++) {
+		if (aspa_array_append(new_array, &array->data[existing_i]) != ASPA_SUCCESS) {
+			*failed_operation = current;
+			return ASPA_ERROR;
+		}
+	}
+#endif
 
 	return ASPA_SUCCESS;
 }
@@ -365,11 +397,15 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 	if (!rtr_socket || !operations || len == 0 || !failed_operation)
 		return ASPA_ERROR;
 
+#ifdef ASPA_UPDATE_IN_PLACE
 	if (!revert) {
+#endif
 		// stable sort operations, so operations dealing with the same customer ASN
 		// are located right next to each other
 		qsort(operations, len, sizeof(struct aspa_update_operation), compare_update_operations);
+#ifdef ASPA_UPDATE_IN_PLACE
 	}
+#endif
 
 	pthread_rwlock_wrlock(&aspa_table->lock);
 
