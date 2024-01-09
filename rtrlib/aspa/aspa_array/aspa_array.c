@@ -156,7 +156,7 @@ enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index)
 
 inline struct aspa_record *aspa_array_get_record(struct aspa_array *array, size_t index)
 {
-	if (!array || index >= array->size || array->size == 0 || !array->data)
+	if (!array || index >= array->size || !array->data) // or array->size == 0
 		return NULL;
 
 	return &array->data[index];
