@@ -268,16 +268,16 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),
 			      compare_asns);
 
-		// $CAS is not stored
-		// Error: Duplicate Remove.
+		// non-withdrawn record with customer_asn exists
+		// Error: Duplicate Add.
 		if (op_type == ASPA_ADD && existing_record &&
 		    current->record.customer_asn == existing_record->customer_asn) {
 			*failed_operation = current;
 			return ASPA_DUPLICATE_RECORD;
 		}
 
-		// non-withdrawn record with customer_asn exists
-		// Error: Duplicate Add.
+		// customer_asn is not stored
+		// Error: Removal of non-existing.
 		if (op_type == ASPA_REMOVE &&
 		    (!existing_record || current->record.customer_asn != existing_record->customer_asn)) {
 			*failed_operation = current;
