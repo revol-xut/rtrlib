@@ -104,10 +104,12 @@ struct aspa_update_finalization_args {
  * @note You should only release the unused provider sets if you're sure you are not going to reverse this update (by calling with argument @c reverse set to @c true ).
  */
 enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-				   struct aspa_update_operation *operations, size_t len, bool revert,
+				   struct aspa_update_operation *operations, size_t len,
+#ifdef ASPA_UPDATE_IN_PLACE
+				   bool revert,
+#endif
 				   struct aspa_update_operation **failed_operation,
 				   struct aspa_update_finalization_args **finalization_args);
-
 /**
  * @brief Finalizes update
  * @param finalization_args Finalization arguments from aspa_table_update
