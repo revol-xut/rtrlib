@@ -194,7 +194,7 @@ static enum aspa_status append_to_set_array(uint32_t ***sets, size_t *size, size
 		*sets = tmp;
 	}
 
-	*sets[*size] = new_set;
+	(*sets)[*size] = new_set;
 	*size += 1;
 	return ASPA_SUCCESS;
 }
