@@ -2,7 +2,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 
 
-add_executable(test_aspa_vector test_aspa_vector.c)
+add_executable(test_aspa_vector test_aspa_array.c)
 target_link_libraries(test_aspa_vector rtrlib_static)
 add_coverage(test_aspa_vector)
 add_executable(test_pfx test_pfx.c)
@@ -35,6 +35,9 @@ add_coverage(test_dynamic_groups)
 add_executable(test_as_path_verification test_as_path_verification.c)
 target_link_libraries(test_as_path_verification rtrlib_static)
 add_coverage(test_as_path_verification)
+add_executable(test_aspa test_aspa.c)
+target_link_libraries(test_aspa rtrlib_static)
+add_coverage(test_aspa)
 if(RTRLIB_BGPSEC_ENABLED)
     add_executable(test_bgpsec test_bgpsec.c)
     target_link_libraries(test_bgpsec rtrlib_static)
