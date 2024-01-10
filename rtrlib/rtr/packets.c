@@ -836,7 +836,8 @@ static int rtr_undo_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa
 				      struct aspa_update_operation **failed_operation)
 {
 	int res = RTR_SUCCESS;
-	if (aspa_table_update(aspa_table, rtr_socket, operations, true, len, failed_operation, NULL)) {
+	size_t failed_index = 0;
+	if (aspa_table_update(aspa_table, rtr_socket, operations, len, true, failed_operation, &failed_index, NULL)) {
 		// Undo failed, cannot recover, remove all records associated with the socket instead
 		RTR_DBG1(
 			"Couldn't undo all update operations from failed data synchronisation: Purging all ASPA records");
@@ -1067,7 +1068,7 @@ static int rtr_update_spki_table(struct rtr_socket *rtr_socket, struct spki_tabl
 static int rtr_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_table *aspa_table,
 				 struct pdu_aspa **aspa_pdus, size_t pdus_size,
 				 struct aspa_update_operation **operations,
-				 struct aspa_update_operation **failed_operation,
+				 struct aspa_update_operation **failed_operation, size_t *failed_index,
 				 struct aspa_update_finalization_args **finalization_args)
 {
 	if (!failed_operation)
@@ -1094,10 +1095,10 @@ static int rtr_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_tabl
 	}
 #ifdef ASPA_UPDATE_IN_PLACE
 	enum aspa_status res = aspa_table_update(aspa_table, rtr_socket, *operations, pdus_size, false,
-						 failed_operation, finalization_args);
+						 failed_operation, failed_index, finalization_args);
 #else
-	enum aspa_status res =
-		aspa_table_update(aspa_table, rtr_socket, *operations, pdus_size, failed_operation, finalization_args);
+	enum aspa_status res = aspa_table_update(aspa_table, rtr_socket, *operations, pdus_size, failed_operation,
+						 failed_index, finalization_args);
 #endif
 
 	if (*failed_operation) {
@@ -1197,15 +1198,19 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 
 		struct aspa_update_operation *operations = NULL;
 		struct aspa_update_operation *failed_op = NULL;
+		size_t failed_index = 0;
 
 		if (rtr_update_aspa_table(rtr_socket, aspa_table, aspa_pdus, aspa_pdu_count, &operations, &failed_op,
-					  &aspa_finalization_args) == RTR_ERROR) {
+					  &failed_index, &aspa_finalization_args) == RTR_ERROR) {
 			RTR_DBG1("error while updating aspa data");
 			update_succeeded = false;
 
 #ifdef ASPA_UPDATE_IN_PLACE
-			if (rtr_undo_update_aspa_table(rtr_socket, aspa_table, operations, aspa_pdu_count,
-						       &failed_op) == RTR_ERROR)
+			if (failed_index != 0 &&
+			    rtr_undo_update_aspa_table(
+				    rtr_socket, aspa_table, operations, failed_index,
+				    // TODO setting len = failed_index works only because operations array is pre-sorted (from last round)
+				    &failed_op) == RTR_ERROR)
 				undo_succeeded = false;
 #endif
 

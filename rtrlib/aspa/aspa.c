@@ -172,6 +172,24 @@ static int compare_update_operations(const void *a, const void *b)
 		return 0;
 }
 
+static int compare_update_operations_reverse_index(const void *a, const void *b)
+{
+	const struct aspa_update_operation *op1 = a;
+	const struct aspa_update_operation *op2 = b;
+
+	// compare index in case customer ASNs match, so result is stable
+	if (op1->record.customer_asn < op2->record.customer_asn)
+		return -1;
+	else if (op1->record.customer_asn > op2->record.customer_asn)
+		return 1;
+	else if (op1->index > op2->index)
+		return -1;
+	else if (op1->index < op2->index)
+		return 1;
+	else
+		return 0;
+}
+
 static int compare_asns(const void *a, const void *b)
 {
 	return *(uint32_t *)a - *(uint32_t *)b;
@@ -219,7 +237,8 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 						   struct aspa_update_operation *operations, size_t len,
 #endif
 						   struct aspa_update_operation **failed_operation,
-						   uint32_t ***unused_provider_sets, size_t *unused_size)
+						   size_t *failed_index, uint32_t ***unused_provider_sets,
+						   size_t *unused_size)
 {
 #ifdef ASPA_UPDATE_IN_PLACE
 	if (!rtr_socket || !operations || len == 0 || !failed_operation)
@@ -245,9 +264,10 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 		current = &operations[i];
 
 #ifndef ASPA_UPDATE_IN_PLACE
-		if (current->record.customer_asn != last_asn)
+		if (current->record.customer_asn != last_asn) {
 			current_withdrawn = false;
-		last_asn = current->record.customer_asn;
+			last_asn = current->record.customer_asn;
+		}
 #endif
 
 #ifdef ASPA_UPDATE_IN_PLACE
@@ -265,6 +285,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 #ifndef ASPA_UPDATE_IN_PLACE
 				if (aspa_array_append(new_array, &array->data[existing_i]) != ASPA_SUCCESS) {
 					*failed_operation = current;
+					*failed_index = i;
 					return ASPA_ERROR;
 				}
 #endif
@@ -275,6 +296,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 #endif
 
 		struct aspa_record *existing_record = aspa_array_get_record(array, existing_i);
+		struct aspa_record *previous_record = aspa_array_get_record(array, existing_i - 1);
 #ifdef ASPA_UPDATE_IN_PLACE
 		enum aspa_operation_type op_type = revert ? invert(current->type) : current->type;
 #else
@@ -286,22 +308,35 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),
 			      compare_asns);
 
+#ifndef ASPA_UPDATE_IN_PLACE
+		struct aspa_record *lastadded_record = aspa_array_get_record(new_array, new_array->size - 1);
+#endif
+
 		// non-withdrawn record with customer_asn exists
 		// Error: Duplicate Add.
-		if (op_type == ASPA_ADD && existing_record &&
+		if (op_type == ASPA_ADD &&
+		    (
 #ifndef ASPA_UPDATE_IN_PLACE
-		    !current_withdrawn &&
+			    !current_withdrawn) &&
+		    ((lastadded_record && current->record.customer_asn == lastadded_record->customer_asn) ||
 #endif
-		    current->record.customer_asn == existing_record->customer_asn) {
+		     (existing_record && current->record.customer_asn == existing_record->customer_asn) ||
+		     (previous_record && current->record.customer_asn == previous_record->customer_asn))) {
 			*failed_operation = current;
+			*failed_index = i;
 			return ASPA_DUPLICATE_RECORD;
 		}
 
 		// customer_asn is not stored
 		// Error: Removal of non-existing.
 		if (op_type == ASPA_REMOVE &&
-		    (!existing_record || current->record.customer_asn != existing_record->customer_asn)) {
+		    (
+#ifndef ASPA_UPDATE_IN_PLACE
+			    current_withdrawn ||
+#endif
+			    !existing_record || current->record.customer_asn != existing_record->customer_asn)) {
 			*failed_operation = current;
+			*failed_index = i;
 			return ASPA_RECORD_NOT_FOUND;
 		}
 
@@ -320,6 +355,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 				append_to_set_array(unused_provider_sets, unused_size, &unused_capacity,
 						    current->record.provider_asns) != ASPA_SUCCESS) {
 				*failed_operation = current;
+				*failed_index = i;
 				return ASPA_ERROR;
 			}
 			i += 1;
@@ -330,14 +366,29 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 		if (op_type == ASPA_ADD) {
 #ifdef ASPA_UPDATE_IN_PLACE
 			if (aspa_array_insert(array, existing_i, &current->record) != ASPA_SUCCESS) {
+				{
 #else
-			if (aspa_array_append(new_array, &current->record) != ASPA_SUCCESS) {
+			if (lastadded_record && lastadded_record->customer_asn == current->record.customer_asn) {
+				new_array->data[new_array->size - 1] = current->record;
+				current_withdrawn = false;
+			} else {
+				enum aspa_status append_status = aspa_array_append(new_array, &current->record);
+				if (append_status == ASPA_SUCCESS) {
+					current_withdrawn = false;
+
+				} else {
 #endif
-				*failed_operation = current;
-				return ASPA_ERROR;
+					*failed_operation = current;
+					*failed_index = i;
+					return ASPA_ERROR;
+				}
 			}
-#ifdef ASPA_UPDATE_IN_PLACE
-			existing_i += 1;
+
+#ifndef ASPA_UPDATE_IN_PLACE
+			if (array->data[existing_i].customer_asn == current->record.customer_asn) {
+				// walk forward upon add to not confuse with already-existing
+				existing_i++;
+			}
 #endif
 			aspa_table_notify_clients(aspa_table, &current->record, rtr_socket, true);
 		}
@@ -350,6 +401,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 				if (append_to_set_array(unused_provider_sets, unused_size, &unused_capacity,
 							existing_record->provider_asns) != ASPA_SUCCESS) {
 					*failed_operation = current;
+					*failed_index = i;
 					return ASPA_ERROR;
 				}
 #ifdef ASPA_UPDATE_IN_PLACE
@@ -359,15 +411,17 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 			aspa_table_notify_clients(aspa_table, existing_record, rtr_socket, false);
 
 #ifdef ASPA_UPDATE_IN_PLACE
-			if (aspa_array_remove(array, existing_i) != ASPA_SUCCESS) {
-				*failed_operation = current;
-				return ASPA_ERROR;
-			}
-
 			if (!revert) {
 				// Replace record in operation so it could be undone later.
 				current->record = *existing_record;
 			}
+
+			if (aspa_array_remove(array, existing_i) != ASPA_SUCCESS) {
+				*failed_operation = current;
+				*failed_index = i;
+				return ASPA_ERROR;
+			}
+
 #else
 			current_withdrawn = true;
 #endif
@@ -378,6 +432,7 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 	for (existing_i++; existing_i < array->size; existing_i++) {
 		if (aspa_array_append(new_array, &array->data[existing_i]) != ASPA_SUCCESS) {
 			*failed_operation = current;
+			*failed_index = len - 1;
 			return ASPA_ERROR;
 		}
 	}
@@ -391,7 +446,7 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 #ifdef ASPA_UPDATE_IN_PLACE
 				   bool revert,
 #endif
-				   struct aspa_update_operation **failed_operation,
+				   struct aspa_update_operation **failed_operation, size_t *failed_index,
 				   struct aspa_update_finalization_args **finalization_args)
 {
 	if (!rtr_socket || !operations || len == 0 || !failed_operation)
@@ -404,6 +459,8 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 		// are located right next to each other
 		qsort(operations, len, sizeof(struct aspa_update_operation), compare_update_operations);
 #ifdef ASPA_UPDATE_IN_PLACE
+	} else {
+		qsort(operations, len, sizeof(struct aspa_update_operation), compare_update_operations_reverse_index);
 	}
 #endif
 
@@ -431,7 +488,7 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 
 #ifdef ASPA_UPDATE_IN_PLACE
 	enum aspa_status res = aspa_table_update_internal(aspa_table, rtr_socket, array, operations, len, revert,
-							  failed_operation, &unused_sets, &unused_size);
+							  failed_operation, failed_index, &unused_sets, &unused_size);
 
 	pthread_rwlock_unlock(&aspa_table->lock);
 #else
@@ -443,7 +500,7 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 	}
 
 	enum aspa_status res = aspa_table_update_internal(aspa_table, rtr_socket, array, new_array, operations, len,
-							  failed_operation, &unused_sets, &unused_size);
+							  failed_operation, failed_index, &unused_sets, &unused_size);
 #endif
 
 	if (finalization_args && !*finalization_args) {
