@@ -19,16 +19,13 @@
 #ifndef RTR_ASPA_H
 #define RTR_ASPA_H
 
-#include "aspa_array/aspa_array.h"
-
+#include "rtrlib/aspa/aspa_array/aspa_array.h"
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/rtr/rtr.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 /**
  * @brief ASPA Record
@@ -49,6 +46,17 @@ size_t aspa_size_of_aspa_record(const struct aspa_record *record);
 struct aspa_table;
 
 /**
+ * @brief An enum describing the type of operation the ASPA table should perform using any given ASPA record.
+ */
+enum aspa_operation_type {
+	/** The existing record, identified by its customer ASN, shall be withdrawn from the ASPA table. */
+	ASPA_REMOVE = 0,
+
+	/** The new record, identified by its customer ASN, shall be added to the ASPA table. */
+	ASPA_ADD = 1
+};
+
+/**
  * @brief A function pointer that is called if an record was added to the aspa_table or was removed from the aspa_table.
  *
  * @param aspa_table which was updated.
@@ -56,7 +64,7 @@ struct aspa_table;
  * @param added True if the record was added, false if the record was removed.
  */
 typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_record record,
-			       const struct rtr_socket *rtr_socket, const bool added);
+			       const struct rtr_socket *rtr_socket, const enum aspa_operation_type operation_type);
 
 /**
  * @brief ASPA Table

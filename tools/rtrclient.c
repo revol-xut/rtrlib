@@ -540,7 +540,7 @@ static void update_spki(struct spki_table *s __attribute__((unused)), const stru
 	pthread_mutex_unlock(&stdout_mutex);
 }
 
-static void update_aspa(struct aspa_table *s __attribute__((unused)), const struct aspa_record record, const struct rtr_socket *rtr_sockt, const bool added)
+static void update_aspa(struct aspa_table *s __attribute__((unused)), const struct aspa_record record, const struct rtr_socket *rtr_sockt, const enum aspa_operation_type operation_type)
 {
 	const struct socket_config *config = (const struct socket_config *)rtr_sockt;
 
@@ -551,10 +551,15 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 
 	char c;
 
-	if (added)
-		c = '+';
-	else
-		c = '-';
+    switch (operation_type) {
+    case ASPA_ADD:
+        c = '+';
+        break;
+    case ASPA_REMOVE:
+        c = '-';
+        break;
+    default: break;
+    }
 
 	printf("%c ", c);
 	printf("HOST:  %s:%s\n", config->host, config->port);

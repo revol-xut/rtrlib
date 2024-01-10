@@ -7,9 +7,7 @@
  * Website: http://rtrlib.realmv6.org/
  */
 
-#include "aspa_array/aspa_array.h"
-#include "aspa_private.h"
-
+#include "rtrlib/aspa/aspa_private.h"
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/rtrlib_export_private.h"
 

@@ -200,11 +200,11 @@ struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t custome
 		if (center_value == customer_asn) {
 			return &array->data[center];
 
-		// value should be on the right side
+			// value should be on the right side
 		} else if (center_value < customer_asn) {
 			left = center + 1;
 
-		// value should be on the left side
+			// value should be on the left side
 		} else if (center == 0) {
 			// value cannot be left of index 0
 			return NULL;

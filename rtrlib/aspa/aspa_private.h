@@ -19,13 +19,12 @@
 #ifndef RTR_ASPA_PRIVATE_H
 #define RTR_ASPA_PRIVATE_H
 
-#include "../rtr/rtr.h"
 #include "aspa.h"
+
+#include "rtrlib/rtr/rtr.h"
 
 #include <stdbool.h>
 #include <stdint.h>
-
-#define ASPA_UPDATE_IN_PLACE 1
 
 /**
  * @brief A linked list storing the bond between a socket and an @c aspa_array .
@@ -50,17 +49,6 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 // MARK: - Updating
 
 /**
- * @brief An enum describing the type of operation the ASPA table should perform using any given ASPA record.
- */
-enum aspa_operation_type {
-	/** The existing record, identified by its customer ASN, shall be withdrawn from the ASPA table. */
-	ASPA_REMOVE = 0,
-
-	/** The new record, identified by its customer ASN, shall be added to the ASPA table. */
-	ASPA_ADD = 1
-};
-
-/**
  * @brief A struct describing a specific type of operation that should be performed using the attached ASPA record.
  * @param index A value uniquely identifying this operation's position within the array of operations.
  * @param type The operation's type.
@@ -69,21 +57,22 @@ enum aspa_operation_type {
 struct aspa_update_operation {
 	size_t index;
 	enum aspa_operation_type type;
+	bool skip;
 	struct aspa_record record;
 };
 
+// MARK: - Swap-In Update Mechanism
+
 /**
- * @brief ASPA update finalization arguments
- * @param unused_provider_arrays Array of pointers to now unused provider sets.
- * @param unused_provider_array_len Number of unused provider sets.
+ * @brief Computed ASPA update.
  */
-struct aspa_update_finalization_args {
-	uint32_t **unused_provider_arrays;
-	size_t unused_provider_array_len;
-#ifndef ASPA_UPDATE_IN_PLACE
+struct aspa_update {
+	struct aspa_table *table;
+	struct rtr_socket *socket;
+	struct aspa_update_operation *operations;
+	size_t operation_count;
 	struct aspa_array **old_array;
 	struct aspa_array *new_array;
-#endif
 };
 
 /**
@@ -93,9 +82,8 @@ struct aspa_update_finalization_args {
  * @param[in] rtr_socket The socket the updates originate from.
  * @param[in] operations  Add and remove operations to perform.
  * @param[in] len  Number of operations
- * @param[in] revert A boolean value indicating whether to apply the inverse the effect of the given operations (add <-> remove).
- * @param[in,out] failed_operation The operation responsible for causing the table update failure. @c NULL , if the update succeeded. If this function is called with @c revert set to @c false , treat this as an output parameter. If @c revert is @c true , this argument must not be @ NULL.
- * @param[out] cleanup_args Arguments for cleanup.
+ * @param[in,out] failed_operation The operation responsible for causing the table update failure. @c NULL , if the update succeeded. If this function is called with @c revert set to @c false , treat this as an output parameter. If @c revert is @c true , this argument must not be @c NULL.
+ * @param[out] update The computed update.
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already exists.
@@ -103,20 +91,22 @@ struct aspa_update_finalization_args {
  *
  * @note You should only release the unused provider sets if you're sure you are not going to reverse this update (by calling with argument @c reverse set to @c true ).
  */
-enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-				   struct aspa_update_operation *operations, size_t len, bool revert,
-				   struct aspa_update_operation **failed_operation,
-				   struct aspa_update_finalization_args **finalization_args);
+enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+					   struct aspa_update_operation *operations, size_t len,
+					   struct aspa_update_operation **failed_operation,
+					   struct aspa_update **update);
 
 /**
- * @brief Finalizes update
- * @param finalization_args Finalization arguments from aspa_table_update
+ * @brief Applys the given update, as previously computed by @c aspa_table_compute_update
+ * @param update The update that will be applied
  */
-#ifdef ASPA_UPDATE_IN_PLACE
-void aspa_update_finalize(struct aspa_update_finalization_args *finalization_args);
-#else
-void aspa_update_finalize(struct aspa_update_finalization_args *finalization_args, bool apply_update);
-#endif
+void aspa_table_apply_update(struct aspa_update *update);
+
+/**
+ * @brief Frees the given update.
+ * @param update The update struct to free
+ */
+void aspa_table_free_update(struct aspa_update *update);
 
 // MARK: - Verification
 
