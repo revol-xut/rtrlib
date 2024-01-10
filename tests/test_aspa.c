@@ -278,7 +278,7 @@ static void test_regular(struct rtr_socket *socket)
 {
 	// Test: regular announcements and withdrawals
 	// Expect: OK
-	// DB: records get removed, newly announced are added
+	// DB: withdrawn records get removed, newly announced are added
 
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1100, (uint32_t[]){1101, 1102, 1103, 1104}, 4);
@@ -327,7 +327,26 @@ static void test_regular(struct rtr_socket *socket)
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1100, (uint32_t[]){1201, 1202, 1203, 1204}, 4);
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 0, (uint32_t[]){}, 0);
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
-	printf("coming up!\n");
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+	test_table(
+		socket,
+		(struct aspa_record[]){
+			(struct aspa_record){.customer_asn = 0, .provider_count = 0, .provider_asns = (uint32_t[]){}},
+			(struct aspa_record){.customer_asn = 1100,
+					     .provider_count = 4,
+					     .provider_asns = (uint32_t[]){1201, 1202, 1203, 1204}},
+			(struct aspa_record){.customer_asn = 1101,
+					     .provider_count = 4,
+					     .provider_asns = (uint32_t[]){1100, 1102, 1103, 1104}},
+			(struct aspa_record){.customer_asn = 3300,
+					     .provider_count = 4,
+					     .provider_asns = (uint32_t[]){3301, 3302, 3303, 3304}},
+		},
+		4);
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1901, (uint32_t[]){1201, 1202, 1203, 1204}, 4);
+	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, 1901, (uint32_t[]){}, 0);
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 	assert(rtr_sync(socket) == RTR_SUCCESS);
 	test_table(
 		socket,
@@ -401,7 +420,22 @@ static void test_withdraw_twice(struct rtr_socket *socket)
 	append_aspa(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 0, (uint32_t[]){}, 0);
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 	assert(rtr_sync(socket) == RTR_ERROR);
-	printf("upcoming!\n");
+	test_table(socket,
+		   (struct aspa_record[]){
+			   (struct aspa_record){.customer_asn = 1900,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){1901, 1902, 1903, 1904}},
+			   (struct aspa_record){.customer_asn = 1901,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){1900, 1902, 1903, 1904}},
+			   (struct aspa_record){.customer_asn = 2200,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){2201, 2202, 2203, 2204}},
+			   (struct aspa_record){.customer_asn = 3300,
+						.provider_count = 4,
+						.provider_asns = (uint32_t[]){3301, 3302, 3303, 3304}},
+		   },
+		   4);
 	test_table(socket,
 		   (struct aspa_record[]){
 			   (struct aspa_record){.customer_asn = 1900,
