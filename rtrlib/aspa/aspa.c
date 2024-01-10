@@ -422,7 +422,11 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 	}
 
 #ifndef ASPA_UPDATE_IN_PLACE
-	for (existing_i++; existing_i < array->size; existing_i++) {
+	if (array->data[existing_i].customer_asn == current->record.customer_asn) {
+		// walk forward to not copy processed records
+		existing_i++;
+	}
+	for (; existing_i < array->size; existing_i++) {
 		if (aspa_array_append(new_array, &array->data[existing_i]) != ASPA_SUCCESS) {
 			*failed_operation = current;
 			*failed_index = len - 1;
