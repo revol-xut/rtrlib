@@ -366,22 +366,15 @@ static enum aspa_status aspa_table_update_internal(struct aspa_table *aspa_table
 		if (op_type == ASPA_ADD) {
 #ifdef ASPA_UPDATE_IN_PLACE
 			if (aspa_array_insert(array, existing_i, &current->record) != ASPA_SUCCESS) {
-				{
 #else
-			if (lastadded_record && lastadded_record->customer_asn == current->record.customer_asn) {
-				new_array->data[new_array->size - 1] = current->record;
+			if (aspa_array_append(new_array, &current->record) == ASPA_SUCCESS) {
 				current_withdrawn = false;
-			} else {
-				enum aspa_status append_status = aspa_array_append(new_array, &current->record);
-				if (append_status == ASPA_SUCCESS) {
-					current_withdrawn = false;
 
-				} else {
+			} else {
 #endif
 					*failed_operation = current;
 					*failed_index = i;
 					return ASPA_ERROR;
-				}
 			}
 
 #ifndef ASPA_UPDATE_IN_PLACE
