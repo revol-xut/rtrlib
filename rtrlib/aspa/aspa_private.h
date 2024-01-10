@@ -109,6 +109,7 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 				   bool revert,
 #endif
 				   struct aspa_update_operation **failed_operation,
+				   size_t *failed_index,
 				   struct aspa_update_finalization_args **finalization_args);
 /**
  * @brief Finalizes update
