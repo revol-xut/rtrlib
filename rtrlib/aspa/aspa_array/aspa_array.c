@@ -72,30 +72,21 @@ enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_se
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_reallocate(struct aspa_array *array)
+static enum aspa_status aspa_array_reallocate(struct aspa_array *array)
 {
 	// the factor by how much the capacity will increase: new_capacity = old_capacity * SIZE_INCREASE_EXPONENTIAL
 	const size_t SIZE_INCREASE_EXPONENTIAL = 2;
 
 	// allocation the new chunk of memory
-	struct aspa_record *new_data_field = (struct aspa_record *)lrtr_malloc(
-		sizeof(struct aspa_record) * array->capacity * SIZE_INCREASE_EXPONENTIAL);
+	struct aspa_record *tmp =
+		lrtr_realloc(array->data, sizeof(struct aspa_record) * array->capacity * SIZE_INCREASE_EXPONENTIAL);
 
 	// malloc failed so returning an error
-	if (new_data_field == NULL) {
+	if (!tmp)
 		return ASPA_ERROR;
-	}
 
-	// copying the data from the old location to the new one
-	memcpy(new_data_field, array->data, array->capacity * sizeof(struct aspa_record));
-
-	// deleting the old vector
-	lrtr_free(array->data);
-
-	// assigning the new array to the vector and incrementing the capacity
-	array->data = new_data_field;
+	array->data = tmp;
 	array->capacity *= SIZE_INCREASE_EXPONENTIAL;
-
 	return ASPA_SUCCESS;
 }
 
@@ -176,6 +167,27 @@ enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record 
 	array->data[array->size] = *record;
 	array->size += 1;
 
+	return ASPA_SUCCESS;
+}
+
+enum aspa_status aspa_array_append_contents(struct aspa_array *array, struct aspa_record *records, size_t count)
+{
+	size_t size = array->size + count;
+	// check if this element will fit into the vector
+	if (size >= array->capacity) {
+		// increasing the vectors size so the new element fits
+
+		struct aspa_record *tmp = lrtr_realloc(array->data, size);
+		if (!tmp) {
+			return ASPA_ERROR;
+		}
+
+		array->data = tmp;
+		array->capacity = size;
+	}
+
+	memcpy(&array->data[array->size], records, count * sizeof(struct aspa_record));
+	array->size += count;
 	return ASPA_SUCCESS;
 }
 

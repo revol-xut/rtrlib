@@ -68,11 +68,11 @@ struct aspa_update_operation {
  */
 struct aspa_update {
 	struct aspa_table *table;
-	struct rtr_socket *socket;
 	struct aspa_update_operation *operations;
 	size_t operation_count;
-	struct aspa_array **old_array;
+	struct aspa_store_node *node;
 	struct aspa_array *new_array;
+	struct aspa_array *old_array;
 };
 
 /**

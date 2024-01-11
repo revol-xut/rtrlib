@@ -548,29 +548,26 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 		return;
 
 	pthread_mutex_lock(&stdout_mutex);
+	
+	printf("HOST:  %s:%s\n", config->host, config->port);
 
 	char c;
 
-    switch (operation_type) {
-    case ASPA_ADD:
-        c = '+';
-        break;
-    case ASPA_REMOVE:
-        c = '-';
-        break;
-    default: break;
-    }
+	switch (operation_type) {
+	case ASPA_ADD:
+		c = '+';
+		break;
+	case ASPA_REMOVE:
+		c = '-';
+		break;
+	default: break;
+	}
 
-	printf("%c ", c);
-	printf("HOST:  %s:%s\n", config->host, config->port);
-	printf("Customer ASN:  %u\n  ", record.customer_asn);
+	printf("%c ASPA ", c);
+	printf("%u => [ ", record.customer_asn);
 
 	size_t i;
 	size_t count = record.provider_count;
-
-	printf("Provider ASNs:  ");
-	if (count == 0)
-		printf("<none>");
 		
 	for (i = 0; i < count; i++) {
 		printf("%u", record.provider_asns[i]);
@@ -578,7 +575,7 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 			printf(", ");
 	}
 	
-	printf("\n");
+	printf(" ]\n");
 
 	pthread_mutex_unlock(&stdout_mutex);
 }
