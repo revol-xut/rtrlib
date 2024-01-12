@@ -15,13 +15,10 @@
  *
  * # Swap-In Update Mechanism
  * The ASPA table implements aggregated updating using an array of 'add record' and 'remove record' operations --
- * reducing iterations and memory allocations.. E.g., these operations can be derived from a RTR cache response
- * containing ASPA PDUs. In order to not block callers wanting to verify a given `AS_PATH` (verification requires having
- * a read lock on the table), the ASPA table employs a **Swap-In** update mechanism.
- *
- * This **Swap-In** mechanism both avoids blocking callers who want to verify an `AS_PATH` (and therefore need read
- * access to the table) while an update is in progress and removes the need for an *undo mechanism* in case the update
- * to the ASPA table itself or some other action performed inbetween fails.
+ * reducing iterations and memory allocations. E.g., these operations can be derived from a RTR cache response
+ * containing ASPA PDUs. The ASPA tables **Swap-In** update mechanism both avoids blocking callers who want to
+ * verify an `AS_PATH` (and therefore need read access to the table) while an update is in progress and removes the
+ * need for an *undo mechanism* in case the update to the ASPA table itself or some other action performed inbetween fails.
  *
  * - **Compute Update**:
  *   Every time you want to update a given ASPA table, call `aspa_table_compute_update`. This will create a new ASPA
