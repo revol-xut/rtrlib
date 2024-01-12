@@ -357,7 +357,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	struct aspa_array *new_array = NULL;
 	if (aspa_array_create(&new_array) != ASPA_SUCCESS) {
 		// We don't need to free the update we may have allocated previously
-		// as this must by done by the calling `aspa_free_update`
+		// as this must by done by the calling `aspa_table_update_cleanup`
 		return ASPA_ERROR;
 	}
 
