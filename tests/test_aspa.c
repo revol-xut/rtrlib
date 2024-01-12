@@ -67,7 +67,7 @@ struct update_callback {
 	.source = NULL, .record = rec, .type = ASPA_ADD \
 }
 
-#define ADDED_TO(table,rec) (struct update_callback) { \
+#define ADDED_TO(table, rec) (struct update_callback) { \
 	.source = table, .record = rec, .type = ASPA_ADD \
 }
 
@@ -218,7 +218,7 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 		}
 
 		printf(
-			"expecting [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
+			"expecting update callback [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
 			operation_type_debug_description(expected_callbacks[callback_index].type),
 			expected_callbacks[callback_index].record.customer_asn,
 			expected_callbacks[callback_index].record.provider_count,
