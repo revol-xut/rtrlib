@@ -1192,7 +1192,6 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 
 		// aspa_update is non-NULL, checked above
 		aspa_table_apply_update(aspa_update);
-
 		RTR_DBG1("ASPA records added");
 	}
 
@@ -1505,6 +1504,7 @@ static int rtr_sync_receive_and_store_pdus(struct rtr_socket *rtr_socket)
 
 				if (aspa_shadow_table) {
 					aspa_table_free(aspa_shadow_table, false);
+					lrtr_free(aspa_shadow_table);
 				}
 
 				rtr_socket->is_resetting = false;

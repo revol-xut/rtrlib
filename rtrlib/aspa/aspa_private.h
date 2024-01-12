@@ -130,6 +130,7 @@ struct aspa_update_operation {
  * @brief Computed ASPA update.
  */
 struct aspa_update {
+	pthread_rwlock_t lock;
 	struct aspa_table *table;
 	struct aspa_update_operation *operations;
 	size_t operation_count;

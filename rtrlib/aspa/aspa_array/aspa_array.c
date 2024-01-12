@@ -31,6 +31,7 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 
 	// malloc for aspa_record failed hence we return an error
 	if (!array) {
+		lrtr_free(data_field);
 		return ASPA_ERROR;
 	}
 
@@ -45,18 +46,18 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_sets)
+void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 {
 	// if the vector is null just return
 	if (!array) {
-		return ASPA_ERROR;
+		return;
 	}
 
 	if (array->data) {
 		// freeing the data
 		lrtr_free(array->data);
 
-		if (free_provider_sets) {
+		if (free_provider_arrays) {
 			for (size_t i = 0; i < array->size; i++) {
 				if (array->data[i].provider_asns) {
 					lrtr_free(array->data[i].provider_asns);
@@ -68,8 +69,6 @@ enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_se
 
 	// freeing the array itself
 	lrtr_free(array);
-
-	return ASPA_SUCCESS;
 }
 
 static enum aspa_status aspa_array_reallocate(struct aspa_array *array)

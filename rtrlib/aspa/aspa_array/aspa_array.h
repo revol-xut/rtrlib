@@ -41,11 +41,9 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr);
 /**
  * @brief Deletes the given ASPA array
  * @param array ASPA array which will be deleted
- * @param free_provider_sets A boolean value determining whether each record's provider set should be released.
- * @result @c ASPA_SUCCESS On success.
- * @result @c ASPA_ERROR On error.
+ * @param free_provider_arrays A boolean value determining whether each record's provider array should be released.
  */
-enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_sets);
+void aspa_array_free(struct aspa_array *array, bool free_provider_arrays);
 
 /**
  * @brief Reallocates the vector to increase its size

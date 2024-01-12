@@ -40,9 +40,12 @@ static enum aspa_status aspa_table_notify_clients(struct aspa_table *aspa_table,
 	return ASPA_SUCCESS;
 }
 
-static enum aspa_status aspa_store_insert_node(struct aspa_store_node **store, struct rtr_socket *rtr_socket,
+static enum aspa_status aspa_store_create_node(struct aspa_store_node **store, struct rtr_socket *rtr_socket,
 					       struct aspa_array *aspa_array, struct aspa_store_node ***new_node)
 {
+	if (rtr_socket == NULL)
+		return ASPA_ERROR;
+
 	// Allocate new node
 	struct aspa_store_node *new = lrtr_malloc(sizeof(struct aspa_store_node));
 
@@ -140,12 +143,14 @@ RTRLIB_EXPORT enum aspa_status aspa_table_src_remove(struct aspa_table *aspa_tab
 		return ASPA_SUCCESS;
 	}
 
-	return aspa_table_remove_node(aspa_table, node, notify);
+	enum aspa_status res = aspa_table_remove_node(aspa_table, node, notify);
+
+	pthread_rwlock_unlock(&(aspa_table->lock));
+	return res;
 }
 
 RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
 {
-	// To destroy the lock, first acquire the lock
 	pthread_rwlock_wrlock(&aspa_table->lock);
 
 	// Free store
@@ -322,58 +327,67 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 	if (!*update) {
 		*update = lrtr_malloc(sizeof(struct aspa_update));
-
-		if (!*update) {
+		
+		if (!*update)
 			return ASPA_ERROR;
-		}
+		
+		pthread_rwlock_init(&(*update)->lock, NULL);
 	}
-
-	// stable sort operations, so operations dealing with the same customer ASN
-	// are located right next to each other
-	qsort(operations, count, sizeof(struct aspa_update_operation), compare_update_operations);
-
-	// MARK: Lock table while retrieving array for socket
-	pthread_rwlock_wrlock(&aspa_table->lock);
-
-	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
-
-	if (!node || !*node) {
-		struct aspa_array *array;
-		if (aspa_array_create(&array) != ASPA_SUCCESS || !array ||
-		    aspa_store_insert_node(&aspa_table->store, rtr_socket, array, &node) != ASPA_SUCCESS) {
-			pthread_rwlock_unlock(&aspa_table->lock);
-			return ASPA_ERROR;
-		}
-	}
-
-	if (!node || !*node || !(*node)->aspa_array) {
-		pthread_rwlock_unlock(&aspa_table->lock);
-		return ASPA_ERROR;
-	}
-
-	pthread_rwlock_unlock(&aspa_table->lock);
-
-	(*update)->table = aspa_table;
-	(*update)->node = *node;
+	
+	pthread_rwlock_wrlock(&(*update)->lock);
 	(*update)->old_array = NULL;
 	(*update)->operations = operations;
 	(*update)->operation_count = count;
 	(*update)->is_applied = false;
+	
+	// stable sort operations, so operations dealing with the same customer ASN
+	// are located right next to each other
+	qsort(operations, count, sizeof(struct aspa_update_operation), compare_update_operations);
 
+	pthread_rwlock_rdlock(&aspa_table->lock);
+	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
+	pthread_rwlock_unlock(&aspa_table->lock);
+	
+	if (!node || !*node) {
+		// The given table doesn't have a node for that socket, so create one
+		struct aspa_array *a = NULL;
+		if (aspa_array_create(&a) != ASPA_SUCCESS) {
+			pthread_rwlock_unlock(&(*update)->lock);
+			return ASPA_ERROR;
+		}
+		
+		// Insert into table
+		pthread_rwlock_wrlock(&aspa_table->lock);
+		if (aspa_store_create_node(&aspa_table->store, rtr_socket, a, &node) != ASPA_SUCCESS || !node || !*node) {
+			aspa_array_free(a, false);
+			pthread_rwlock_unlock(&aspa_table->lock);
+			pthread_rwlock_unlock(&(*update)->lock);
+			return ASPA_ERROR;
+		}
+		pthread_rwlock_unlock(&aspa_table->lock);
+	}
+
+	assert(node);
+	assert(*node);
+
+	// Create new array that will hold updated record data
 	struct aspa_array *new_array = NULL;
 	if (aspa_array_create(&new_array) != ASPA_SUCCESS) {
 		// We don't need to free the update we may have allocated previously
 		// as this must by done by the calling `aspa_table_update_cleanup`
+		pthread_rwlock_unlock(&aspa_table->lock);
+		pthread_rwlock_unlock(&(*update)->lock);
 		return ASPA_ERROR;
 	}
 
-	// Enforce read lock
+	// Populate new_array
 	pthread_rwlock_rdlock(&aspa_table->lock);
 	enum aspa_status res = aspa_table_compute_update_internal(rtr_socket, (*node)->aspa_array, new_array,
 								  operations, count, failed_operation);
 	pthread_rwlock_unlock(&aspa_table->lock);
 
 	if (res == ASPA_SUCCESS) {
+		(*update)->table = aspa_table;
 		(*update)->node = *node;
 		(*update)->new_array = new_array;
 	} else {
@@ -386,17 +400,26 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 		aspa_array_free(new_array, false);
 	}
 
+	pthread_rwlock_unlock(&(*update)->lock);
 	return res;
 }
 
 void aspa_table_apply_update(struct aspa_update *update)
 {
-	if (!update || !update->table || !update->operations || !update->node || !update->new_array ||
-	    update->is_applied)
+	if (!update)
 		return;
 
-	pthread_rwlock_wrlock(&update->table->lock);
+	pthread_rwlock_wrlock(&update->lock);
+	
+	if (!update->table || !update->operations || !update->node || !update->new_array ||
+		update->is_applied) {
+		pthread_rwlock_unlock(&update->lock);
+		return;
+	}
+	
 	update->old_array = update->node->aspa_array;
+	
+	pthread_rwlock_wrlock(&update->table->lock);
 	update->node->aspa_array = update->new_array;
 	pthread_rwlock_unlock(&update->table->lock);
 
@@ -421,12 +444,16 @@ void aspa_table_apply_update(struct aspa_update *update)
 		if (!op->skip)
 			aspa_table_notify_clients(table, &op->record, socket, op->type);
 	}
+	
+	pthread_rwlock_unlock(&update->lock);
 }
 
 void aspa_table_update_cleanup(struct aspa_update *update)
 {
 	if (!update)
 		return;
+	
+	pthread_rwlock_wrlock(&update->lock);
 
 	if (update->old_array) {
 		// We don't need to release provider arrays as this is done below.
@@ -469,7 +496,9 @@ void aspa_table_update_cleanup(struct aspa_update *update)
 		lrtr_free(update->operations);
 		update->operations = NULL;
 	}
-
+	
+	pthread_rwlock_unlock(&update->lock);
+	pthread_rwlock_destroy(&update->lock);
 	lrtr_free(update);
 }
 
@@ -491,26 +520,26 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 	}
 
 	struct aspa_array *new_array = (*src_node)->aspa_array;
-
-	struct aspa_store_node **existing_node = aspa_store_get_node(&dst->store, rtr_socket);
 	struct aspa_array *old_array = NULL;
 
-	if (!existing_node || !*existing_node) {
-		aspa_store_insert_node(&dst->store, rtr_socket, new_array, NULL);
-	} else if (!*existing_node) {
-		pthread_rwlock_unlock(&src->lock);
-		pthread_rwlock_unlock(&dst->lock);
-		return ASPA_ERROR;
+	// Try to get an existing node in the source table's store
+	struct aspa_store_node **existing_dst_node = aspa_store_get_node(&dst->store, rtr_socket);
+	if (existing_dst_node && *existing_dst_node) {
+		// Swap array
+		old_array = (*existing_dst_node)->aspa_array;
+		(*existing_dst_node)->aspa_array = new_array;
 	} else {
-		old_array = (*existing_node)->aspa_array;
-
-		// Swap in new array
-		(*existing_node)->aspa_array = new_array;
+		// There's no old_array.
+		// Destination table hasn't got an existing store node for the socket, so create a new one
+		if (aspa_store_create_node(&dst->store, rtr_socket, new_array, NULL) != ASPA_SUCCESS) {
+			pthread_rwlock_unlock(&src->lock);
+			pthread_rwlock_unlock(&dst->lock);
+			return ASPA_ERROR;
+		}
 	}
 
 	// Remove socket from source table's store
 	aspa_store_remove_node(src_node);
-
 	pthread_rwlock_unlock(&src->lock);
 	pthread_rwlock_unlock(&dst->lock);
 

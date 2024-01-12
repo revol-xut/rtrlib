@@ -42,7 +42,6 @@ static void test_add_element()
 {
 	struct aspa_array *vector;
 	assert(aspa_array_create(&vector) == ASPA_SUCCESS);
-
 	struct aspa_record *record;
 	generate_fake_aspa_record(42, 300, &record);
 	assert(aspa_array_insert(vector, 0, record) == 0);
@@ -53,7 +52,7 @@ static void test_add_element()
 	assert(vector->data[0].provider_asns[1] == 300 + 1);
 	assert(vector->data[0].provider_asns[2] == 300 + 2);
 
-	assert(aspa_array_free(vector, true) == ASPA_SUCCESS);
+	aspa_array_free(vector, true);
 }
 
 static void test_relocate()
@@ -89,7 +88,7 @@ static void test_relocate()
 	assert(vector->data[2].customer_asn == 1);
 	assert(vector->data[3].customer_asn == 3);
 
-	assert(aspa_array_free(vector, true) == ASPA_SUCCESS);
+	aspa_array_free(vector, true);
 }
 
 static void test_remove_element()
@@ -123,7 +122,7 @@ static void test_remove_element()
 	assert(vector->data[1].customer_asn == 2);
 	assert(vector->data[2].customer_asn == 4);
 
-	assert(aspa_array_free(vector, true) == 0);
+	aspa_array_free(vector, true);
 }
 
 static void test_find_element()
@@ -157,7 +156,7 @@ static void test_find_element()
 	assert(aspa_array_search(vector, 4) == &vector->data[3]);
 	assert(aspa_array_search(vector, 5) == &vector->data[4]);
 
-	assert(aspa_array_free(vector, true) == ASPA_SUCCESS);
+	aspa_array_free(vector, true);
 }
 
 int main()
