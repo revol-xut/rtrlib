@@ -186,6 +186,9 @@ static int compare_asns(const void *a, const void *b)
 
 // MARK: - Swap-In Update Mechanism
 
+/**
+ * @brief This function fills the given @p new_array with records based on a number of 'add' and 'remove' operations.
+ */
 static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rtr_socket, struct aspa_array *array,
 							   struct aspa_array *new_array,
 							   struct aspa_update_operation *operations, size_t count,
@@ -247,10 +250,11 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 			}
 
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
-			// Also, verify that the record doesn't already exist.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
 				// Mark these operations as skipped
-				// (clients don't get notified about these updates)
+				// a, Clients don't get notified about these updates.
+				// b, We need to release the provider array of the skipped 'add'
+				//    operation as its record isn't going to be added to the table.
 				current->skip = true;
 				next->skip = true;
 

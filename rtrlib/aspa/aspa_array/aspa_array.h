@@ -19,7 +19,10 @@
 
 /**
  * @brief Struct which is similar in function to std::vector from C++.
- * If the vector is running full a larger chunk of memory is allocated and the data is copied over.
+ * If the vector is running full a larger chunk of memory is reallocated.
+ *
+ * This structure stores ASPA records in a contiguous chunk of memory,
+ * sorted in ascending order by their customer ASN.
  */
 struct aspa_array {
 	uint32_t size;

@@ -72,6 +72,9 @@ typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_
  * @property lock Read-Write lock to prevent data races.
  * @property Update function, called when the dynamic ordered array changes.
  * @property sockets sockets Sockets, each storing a dynamic ordered array
+ *
+ * An ASPA table consists of a linked list of a sockets  and ASPA arrays, simplifying removing or replacing records
+ * originating from any given socket.
  */
 struct aspa_table {
 	pthread_rwlock_t lock;
