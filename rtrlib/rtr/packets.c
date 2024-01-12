@@ -1213,7 +1213,7 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 
 	// cleanup
 	if (aspa_update)
-		aspa_table_free_update(aspa_update);
+		aspa_table_update_cleanup(aspa_update);
 
 	return RTR_SUCCESS;
 }

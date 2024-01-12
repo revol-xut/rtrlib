@@ -188,17 +188,17 @@ static int compare_asns(const void *a, const void *b)
 
 static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rtr_socket, struct aspa_array *array,
 							   struct aspa_array *new_array,
-							   struct aspa_update_operation *operations, size_t len,
+							   struct aspa_update_operation *operations, size_t count,
 							   struct aspa_update_operation **failed_operation)
 {
-	if (!rtr_socket || !operations || len == 0 || !failed_operation)
+	if (!rtr_socket || !operations || count == 0 || !failed_operation)
 		return ASPA_ERROR;
 
 	size_t existing_i = 0;
 
-	for (size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < count; i++) {
 		struct aspa_update_operation *current = &operations[i];
-		struct aspa_update_operation *next = (i < len - 1) ? &(operations[i + 1]) : NULL;
+		struct aspa_update_operation *next = (i < count - 1) ? &(operations[i + 1]) : NULL;
 
 		// Sort providers
 		if (current->record.provider_count > 0 && current->record.provider_asns)
@@ -308,10 +308,10 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 }
 
 enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					   struct aspa_update_operation *operations, size_t len,
+					   struct aspa_update_operation *operations, size_t count,
 					   struct aspa_update_operation **failed_operation, struct aspa_update **update)
 {
-	if (!rtr_socket || !operations || len == 0 || !failed_operation || !update)
+	if (!rtr_socket || !operations || count == 0 || !failed_operation || !update)
 		return ASPA_ERROR;
 
 	if (!*update) {
@@ -324,7 +324,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 	// stable sort operations, so operations dealing with the same customer ASN
 	// are located right next to each other
-	qsort(operations, len, sizeof(struct aspa_update_operation), compare_update_operations);
+	qsort(operations, count, sizeof(struct aspa_update_operation), compare_update_operations);
 
 	// MARK: Lock table while retrieving array for socket
 	pthread_rwlock_wrlock(&aspa_table->lock);
@@ -351,7 +351,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	(*update)->node = *node;
 	(*update)->old_array = NULL;
 	(*update)->operations = operations;
-	(*update)->operation_count = len;
+	(*update)->operation_count = count;
 	(*update)->is_applied = false;
 
 	struct aspa_array *new_array = NULL;
@@ -364,7 +364,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	// Enforce read lock
 	pthread_rwlock_rdlock(&aspa_table->lock);
 	enum aspa_status res = aspa_table_compute_update_internal(rtr_socket, (*node)->aspa_array, new_array,
-								  operations, len, failed_operation);
+								  operations, count, failed_operation);
 	pthread_rwlock_unlock(&aspa_table->lock);
 
 	if (res == ASPA_SUCCESS) {
@@ -417,7 +417,7 @@ void aspa_table_apply_update(struct aspa_update *update)
 	}
 }
 
-void aspa_table_free_update(struct aspa_update *update)
+void aspa_table_update_cleanup(struct aspa_update *update)
 {
 	if (!update)
 		return;

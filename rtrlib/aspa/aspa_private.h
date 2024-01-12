@@ -77,37 +77,39 @@ struct aspa_update {
 };
 
 /**
- * @brief Updates the given ASPA table by adding and removing records.
+ * @brief Computes an update structure that can later be applied for the given ASPA table.
+ *
+ * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove' operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
+ * @note You should not release the operations array or any associated provider arrays yourself. Instead, rely on calling `aspa_table_update_cleanup` which deallocates both unused provider arrays and the operations array. The ASPA table avoids unnecessarily copying provider arrays and re-uses them instead.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
  * @param[in] operations  Add and remove operations to perform.
- * @param[in] len  Number of operations
- * @param[in,out] failed_operation The operation responsible for causing the table update failure. @c NULL , if the update succeeded. If this function is called with @c revert set to @c false , treat this as an output parameter. If @c revert is @c true , this argument must not be @c NULL.
- * @param[out] update The computed update.
+ * @param[in] count  Number of operations.
+ * @param[in,out] failed_operation The operation responsible for causing the table update failure. @c NULL , if the update succeeded.
+ * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL value initially. After the update is computed this pointer points to an initialized update structure.
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already exists.
  * @return @c ASPA_ERROR On on failure.
  *
- * @note You should only release the unused provider sets if you're sure you are not going to reverse this update (by calling with argument @c reverse set to @c true ).
  */
 enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					   struct aspa_update_operation *operations, size_t len,
+					   struct aspa_update_operation *operations, size_t count,
 					   struct aspa_update_operation **failed_operation,
 					   struct aspa_update **update);
 
 /**
  * @brief Applys the given update, as previously computed by @c aspa_table_compute_update
- * @param update The update that will be applied
+ * @param update The update that will be applied.
  */
 void aspa_table_apply_update(struct aspa_update *update);
 
 /**
- * @brief Frees the given update.
+ * @brief Frees the given update and unused provider arrays.
  * @param update The update struct to free
  */
-void aspa_table_free_update(struct aspa_update *update);
+void aspa_table_update_cleanup(struct aspa_update *update);
 
 // MARK: - Verification
 
