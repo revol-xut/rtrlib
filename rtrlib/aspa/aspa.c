@@ -422,9 +422,11 @@ void aspa_table_update_cleanup(struct aspa_update *update)
 	if (!update)
 		return;
 
-	if (update->old_array)
+	if (update->old_array) {
 		// We don't need to release provider arrays as this is done below.
 		aspa_array_free(update->old_array, false);
+		update->old_array = NULL;
+	}
 
 	if (update->operations) {
 		// Update got applied, so release provider arrays of
