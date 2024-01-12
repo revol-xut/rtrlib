@@ -1195,8 +1195,11 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 		RTR_DBG1("ASPA records added");
 	}
 
+	// cleanup
+	aspa_table_update_finish(aspa_update);
+
 	// An update attempted above failed
-	else {
+	if (!proceed) {
 		if (undo_failed)
 			// undo failed, so request new session
 			rtr_socket->request_session_id = true;
@@ -1209,10 +1212,6 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 	RTR_DBG("Sync successful, received %u Prefix PDUs, %u Router Key PDUs, %lu ASPA PDUs, session_id: %u, SN: %u",
 		(ipv4_pdu_count + ipv6_pdu_count), router_key_pdu_count, aspa_pdu_count, rtr_socket->session_id,
 		rtr_socket->serial_number);
-
-	// cleanup
-	if (aspa_update)
-		aspa_table_update_cleanup(aspa_update);
 
 	return RTR_SUCCESS;
 }
@@ -1454,8 +1453,6 @@ static int rtr_sync_receive_and_store_pdus(struct rtr_socket *rtr_socket)
 					goto cleanup;
 				}
 				aspa_table_init(aspa_shadow_table, NULL);
-				// Don't need to copy data into the ASPA shadow table because
-				// an aspa_table stores records associated with any socket separately.
 
 				RTR_DBG1("Shadow tables created");
 
@@ -1469,9 +1466,11 @@ static int rtr_sync_receive_and_store_pdus(struct rtr_socket *rtr_socket)
 					RTR_DBG1("Reset finished. Swapping new table in.");
 					pfx_table_swap(rtr_socket->pfx_table, pfx_shadow_table);
 					spki_table_swap(rtr_socket->spki_table, spki_shadow_table);
-					// notify rtr_socket->aspa_table but not aspa_shadow_table
+
+					// No need to notify shadow table's clients as it hasn't any.
+					RTR_DBG1("Replacing ASPA records");
 					aspa_table_src_replace(rtr_socket->aspa_table, aspa_shadow_table, rtr_socket,
-							       true, false);
+							       !!rtr_socket->aspa_table->update_fp, false);
 
 					if (rtr_socket->pfx_table->update_fp) {
 						RTR_DBG1("Calculating and notifying pfx diff");

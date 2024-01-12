@@ -95,6 +95,7 @@ RTRLIB_EXPORT void aspa_table_init(struct aspa_table *aspa_table, aspa_update_fp
 	aspa_table->update_fp = update_fp;
 	aspa_table->store = NULL;
 	pthread_rwlock_init(&(aspa_table->lock), NULL);
+	pthread_rwlock_init(&(aspa_table->update_lock), NULL);
 }
 
 static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, struct aspa_store_node **node,
@@ -133,6 +134,7 @@ static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, st
 RTRLIB_EXPORT enum aspa_status aspa_table_src_remove(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
 						     bool notify)
 {
+	pthread_rwlock_wrlock(&aspa_table->update_lock);
 	pthread_rwlock_wrlock(&aspa_table->lock);
 
 	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
@@ -146,11 +148,13 @@ RTRLIB_EXPORT enum aspa_status aspa_table_src_remove(struct aspa_table *aspa_tab
 	enum aspa_status res = aspa_table_remove_node(aspa_table, node, notify);
 
 	pthread_rwlock_unlock(&(aspa_table->lock));
+	pthread_rwlock_unlock(&aspa_table->update_lock);
 	return res;
 }
 
 RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
 {
+	pthread_rwlock_wrlock(&aspa_table->update_lock);
 	pthread_rwlock_wrlock(&aspa_table->lock);
 
 	// Free store
@@ -162,6 +166,8 @@ RTRLIB_EXPORT void aspa_table_free(struct aspa_table *aspa_table, bool notify)
 
 	pthread_rwlock_unlock(&aspa_table->lock);
 	pthread_rwlock_destroy(&aspa_table->lock);
+	pthread_rwlock_unlock(&aspa_table->update_lock);
+	pthread_rwlock_destroy(&aspa_table->update_lock);
 }
 
 // MARK: - ASPA table update functions
@@ -327,19 +333,22 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 	if (!*update) {
 		*update = lrtr_malloc(sizeof(struct aspa_update));
-		
+
 		if (!*update)
 			return ASPA_ERROR;
-		
-		pthread_rwlock_init(&(*update)->lock, NULL);
 	}
-	
-	pthread_rwlock_wrlock(&(*update)->lock);
+
+	// MARK: Update Lock
+	// Prevent interim writes to the table: We need to make sure the table stays the same
+	// until the cleanup since the computed update is based on the state the table is in right now
+	pthread_rwlock_wrlock(&aspa_table->update_lock);
+
+	(*update)->table = aspa_table;
 	(*update)->old_array = NULL;
 	(*update)->operations = operations;
 	(*update)->operation_count = count;
 	(*update)->is_applied = false;
-	
+
 	// stable sort operations, so operations dealing with the same customer ASN
 	// are located right next to each other
 	qsort(operations, count, sizeof(struct aspa_update_operation), compare_update_operations);
@@ -347,21 +356,20 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	pthread_rwlock_rdlock(&aspa_table->lock);
 	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
 	pthread_rwlock_unlock(&aspa_table->lock);
-	
+
 	if (!node || !*node) {
 		// The given table doesn't have a node for that socket, so create one
 		struct aspa_array *a = NULL;
 		if (aspa_array_create(&a) != ASPA_SUCCESS) {
-			pthread_rwlock_unlock(&(*update)->lock);
 			return ASPA_ERROR;
 		}
-		
+
 		// Insert into table
 		pthread_rwlock_wrlock(&aspa_table->lock);
-		if (aspa_store_create_node(&aspa_table->store, rtr_socket, a, &node) != ASPA_SUCCESS || !node || !*node) {
+		if (aspa_store_create_node(&aspa_table->store, rtr_socket, a, &node) != ASPA_SUCCESS || !node ||
+		    !*node) {
 			aspa_array_free(a, false);
 			pthread_rwlock_unlock(&aspa_table->lock);
-			pthread_rwlock_unlock(&(*update)->lock);
 			return ASPA_ERROR;
 		}
 		pthread_rwlock_unlock(&aspa_table->lock);
@@ -375,8 +383,6 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	if (aspa_array_create(&new_array) != ASPA_SUCCESS) {
 		// We don't need to free the update we may have allocated previously
 		// as this must by done by the calling `aspa_table_update_cleanup`
-		pthread_rwlock_unlock(&aspa_table->lock);
-		pthread_rwlock_unlock(&(*update)->lock);
 		return ASPA_ERROR;
 	}
 
@@ -387,11 +393,9 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	pthread_rwlock_unlock(&aspa_table->lock);
 
 	if (res == ASPA_SUCCESS) {
-		(*update)->table = aspa_table;
 		(*update)->node = *node;
 		(*update)->new_array = new_array;
 	} else {
-		(*update)->table = NULL;
 		(*update)->node = NULL;
 		(*update)->new_array = NULL;
 
@@ -399,8 +403,6 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 		// Note, we must not release associated provider arrays here.
 		aspa_array_free(new_array, false);
 	}
-
-	pthread_rwlock_unlock(&(*update)->lock);
 	return res;
 }
 
@@ -409,28 +411,15 @@ void aspa_table_apply_update(struct aspa_update *update)
 	if (!update)
 		return;
 
-	pthread_rwlock_wrlock(&update->lock);
-	
-	if (!update->table || !update->operations || !update->node || !update->new_array ||
-		update->is_applied) {
-		pthread_rwlock_unlock(&update->lock);
+	if (!update->table || !update->operations || !update->node || !update->new_array || update->is_applied) {
 		return;
 	}
-	
+
 	update->old_array = update->node->aspa_array;
-	
+
 	pthread_rwlock_wrlock(&update->table->lock);
 	update->node->aspa_array = update->new_array;
 	pthread_rwlock_unlock(&update->table->lock);
-
-	struct rtr_socket *socket = update->node->rtr_socket;
-	struct aspa_table *table = update->table;
-
-	// Prevent further access and attempts to re-apply update
-	update->new_array = NULL;
-	update->node = NULL;
-	update->table = NULL;
-	update->is_applied = true;
 
 	// Notify clients
 	for (size_t i = 0; i < update->operation_count; i++) {
@@ -442,18 +431,22 @@ void aspa_table_apply_update(struct aspa_update *update)
 		// in the old_array being removed and then every record in the new_array
 		// being added again.
 		if (!op->skip)
-			aspa_table_notify_clients(table, &op->record, socket, op->type);
+			aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket, op->type);
 	}
-	
-	pthread_rwlock_unlock(&update->lock);
+
+	update->new_array = NULL;
+	update->node = NULL;
+	update->is_applied = true;
 }
 
-void aspa_table_update_cleanup(struct aspa_update *update)
+void aspa_table_update_finish(struct aspa_update *update)
 {
+	// MARK: Change Lock
+	// We're done with the update, allow changes again.
+	pthread_rwlock_unlock(&update->table->update_lock);
+
 	if (!update)
 		return;
-	
-	pthread_rwlock_wrlock(&update->lock);
 
 	if (update->old_array) {
 		// We don't need to release provider arrays as this is done below.
@@ -496,9 +489,7 @@ void aspa_table_update_cleanup(struct aspa_update *update)
 		lrtr_free(update->operations);
 		update->operations = NULL;
 	}
-	
-	pthread_rwlock_unlock(&update->lock);
-	pthread_rwlock_destroy(&update->lock);
+
 	lrtr_free(update);
 }
 
@@ -508,6 +499,8 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 	if (dst == NULL || src == NULL || rtr_socket == NULL || src == dst)
 		return ASPA_ERROR;
 
+	pthread_rwlock_wrlock(&dst->update_lock);
+	pthread_rwlock_wrlock(&src->update_lock);
 	pthread_rwlock_wrlock(&dst->lock);
 	pthread_rwlock_wrlock(&src->lock);
 
@@ -516,6 +509,8 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 	if (!src_node || !*src_node || !(*src_node)->aspa_array) {
 		pthread_rwlock_unlock(&src->lock);
 		pthread_rwlock_unlock(&dst->lock);
+		pthread_rwlock_unlock(&src->update_lock);
+		pthread_rwlock_unlock(&dst->update_lock);
 		return ASPA_ERROR;
 	}
 
@@ -534,6 +529,8 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 		if (aspa_store_create_node(&dst->store, rtr_socket, new_array, NULL) != ASPA_SUCCESS) {
 			pthread_rwlock_unlock(&src->lock);
 			pthread_rwlock_unlock(&dst->lock);
+			pthread_rwlock_unlock(&src->update_lock);
+			pthread_rwlock_unlock(&dst->update_lock);
 			return ASPA_ERROR;
 		}
 	}
@@ -542,6 +539,8 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 	aspa_store_remove_node(src_node);
 	pthread_rwlock_unlock(&src->lock);
 	pthread_rwlock_unlock(&dst->lock);
+	pthread_rwlock_unlock(&src->update_lock);
+	pthread_rwlock_unlock(&dst->update_lock);
 
 	if (notify_src)
 		// Notify src clients their records are being removed

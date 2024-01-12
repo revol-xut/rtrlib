@@ -27,10 +27,14 @@
  * - **Apply Update**:
  *   You may, but do not need to, apply the update to the table using `aspa_table_apply_update`. This will swap in the
  * newly created ASPA array in the table and notify clients about changes made to records during the update.
- * - **Cleanup**:
- *   After computing the update -- regardless of whether said computation failed -- you must perform a cleanup step
- * using `aspa_table_update_cleanup`. This will deallocate provider arrays and other data created during the update
+ * - **Finish Update**:
+ *   After computing the update -- regardless of whether said computation failed -- you must perform a finishing step
+ * using `aspa_table_finish_update`. This will deallocate provider arrays and other data created during the update
  * that's now unused.
+ *
+ * ## Thread Safety
+ * The implementation guarantess no changes are made to the ASPA table between calling `aspa_table_compute_update`
+ * and `aspa_table_finish_update`.
  *
  * ## Special Cases
  * `aspa_table_compute_update_internal` handles the complexity arising from multiple announcements and withdrawals
@@ -130,7 +134,6 @@ struct aspa_update_operation {
  * @brief Computed ASPA update.
  */
 struct aspa_update {
-	pthread_rwlock_t lock;
 	struct aspa_table *table;
 	struct aspa_update_operation *operations;
 	size_t operation_count;
@@ -145,8 +148,7 @@ struct aspa_update {
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
  * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
- * @note You should not release the operations array or any associated provider arrays yourself. Instead, rely on
- * calling `aspa_table_update_cleanup` which deallocates both unused provider arrays and the operations array.
+ * @note You must call @c aspa_table_finish_update afterwards.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
@@ -175,10 +177,10 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 void aspa_table_apply_update(struct aspa_update *update);
 
 /**
- * @brief Frees the given update and unused provider arrays.
+ * @brief Finishes the update.
  * @param update The update struct to free
  */
-void aspa_table_update_cleanup(struct aspa_update *update);
+void aspa_table_update_finish(struct aspa_update *update);
 
 // MARK: - Verification
 
