@@ -77,7 +77,7 @@ struct aspa_update {
 };
 
 /**
- * @brief Computes an update structure that can later be applied for the given ASPA table.
+ * @brief Computes an update structure that can later be applied to the given ASPA table.
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove' operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
  * @note You should not release the operations array or any associated provider arrays yourself. Instead, rely on calling `aspa_table_update_cleanup` which deallocates both unused provider arrays and the operations array. The ASPA table avoids unnecessarily copying provider arrays and re-uses them instead.
