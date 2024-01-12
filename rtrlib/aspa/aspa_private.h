@@ -73,6 +73,7 @@ struct aspa_update {
 	struct aspa_store_node *node;
 	struct aspa_array *new_array;
 	struct aspa_array *old_array;
+	bool is_applied;
 };
 
 /**

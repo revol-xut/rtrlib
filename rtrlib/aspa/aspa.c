@@ -309,6 +309,14 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	if (!rtr_socket || !operations || len == 0 || !failed_operation || !update)
 		return ASPA_ERROR;
 
+	if (!*update) {
+		*update = lrtr_malloc(sizeof(struct aspa_update));
+
+		if (!*update) {
+			return ASPA_ERROR;
+		}
+	}
+
 	// stable sort operations, so operations dealing with the same customer ASN
 	// are located right next to each other
 	qsort(operations, len, sizeof(struct aspa_update_operation), compare_update_operations);
@@ -334,19 +342,12 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 	pthread_rwlock_unlock(&aspa_table->lock);
 
-	if (!*update) {
-		*update = lrtr_malloc(sizeof(struct aspa_update));
-
-		if (!*update) {
-			return ASPA_ERROR;
-		}
-	}
-
 	(*update)->table = aspa_table;
 	(*update)->node = *node;
 	(*update)->old_array = NULL;
 	(*update)->operations = operations;
 	(*update)->operation_count = len;
+	(*update)->is_applied = false;
 
 	struct aspa_array *new_array = NULL;
 	if (aspa_array_create(&new_array) != ASPA_SUCCESS) {
@@ -379,37 +380,34 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 void aspa_table_apply_update(struct aspa_update *update)
 {
-	if (!update || !update->table || !update->operations || !update->node || !update->new_array)
+	if (!update || !update->table || !update->operations || !update->node || !update->new_array || update->is_applied)
 		return;
 
 	pthread_rwlock_wrlock(&update->table->lock);
 	update->old_array = update->node->aspa_array;
 	update->node->aspa_array = update->new_array;
-
-	// Prevent further access;
-	update->new_array = NULL;
 	pthread_rwlock_unlock(&update->table->lock);
+	
+	struct rtr_socket *socket = update->node->rtr_socket;
+	struct aspa_table *table = update->table;
+	
+	// Prevent further access and attempts to re-apply update
+	update->new_array = NULL;
+	update->node = NULL;
+	update->table = NULL;
+	update->is_applied = true;
 
+	// Notify clients
 	for (size_t i = 0; i < update->operation_count; i++) {
 		struct aspa_update_operation *op = &update->operations[i];
 
-		// Notify clients if the operation wasn't skipped)
+		// Notify clients if the operation hasn't skipped
 		// We can directly use the operation array as the source for the diff
 		// so we don't need to rely on first notifying clients about all records
 		// in the old_array being removed and then every record in the new_array
 		// being added again.
 		if (!op->skip)
-			aspa_table_notify_clients(update->table, &update->operations[i].record,
-						  update->node->rtr_socket, update->operations[i].type);
-
-		// Skipped records aren't added to the table, so their provider array
-		// must be released.
-		bool can_free_providers = op->type == ASPA_REMOVE || (op->skip && op->type == ASPA_ADD);
-
-		if (can_free_providers && update->operations[i].record.provider_asns) {
-			lrtr_free(update->operations[i].record.provider_asns);
-			update->operations[i].record.provider_asns = NULL;
-		}
+			aspa_table_notify_clients(table, &op->record, socket, op->type);
 	}
 }
 
@@ -419,14 +417,38 @@ void aspa_table_free_update(struct aspa_update *update)
 		return;
 
 	if (update->old_array)
-		// We don't need to release provider arrays here as every provider array is
-		// - either reused in the new array if the corresponding record is being added
-		// - or released above if the corresponding record is being removed
-		//   (released in `aspa_table_apply_update`)
+		// We don't need to release provider arrays as this is done below.
 		aspa_array_free(update->old_array, false);
 
-	if (update->operations)
+	if (update->operations) {
+		
+		// Update got applied, so release provider arrays of
+		// - records that were removed (reference is inside the corresponding operation)
+		// - records in skipped operations that weren't added to the table
+		if (update->is_applied) {
+			for (size_t i = 0; i < update->operation_count; i++) {
+				struct aspa_update_operation *op = &update->operations[i];
+				
+				// Skipped records aren't added to the table, so their provider arrays
+				// must be released.
+				bool can_free_providers = op->type == ASPA_REMOVE || (op->skip && op->type == ASPA_ADD);
+				
+				if (can_free_providers && update->operations[i].record.provider_asns) {
+					lrtr_free(update->operations[i].record.provider_asns);
+					update->operations[i].record.provider_asns = NULL;
+				}
+			}
+		} 
+		
+		// Update wasn't applied, so release provider arrays of
+		// - every records in each operation
+		else {
+			
+		}
+
 		lrtr_free(update->operations);
+		update->operations = NULL;
+	}
 
 	lrtr_free(update);
 }
