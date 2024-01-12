@@ -380,17 +380,18 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 void aspa_table_apply_update(struct aspa_update *update)
 {
-	if (!update || !update->table || !update->operations || !update->node || !update->new_array || update->is_applied)
+	if (!update || !update->table || !update->operations || !update->node || !update->new_array ||
+	    update->is_applied)
 		return;
 
 	pthread_rwlock_wrlock(&update->table->lock);
 	update->old_array = update->node->aspa_array;
 	update->node->aspa_array = update->new_array;
 	pthread_rwlock_unlock(&update->table->lock);
-	
+
 	struct rtr_socket *socket = update->node->rtr_socket;
 	struct aspa_table *table = update->table;
-	
+
 	// Prevent further access and attempts to re-apply update
 	update->new_array = NULL;
 	update->node = NULL;
@@ -421,29 +422,27 @@ void aspa_table_free_update(struct aspa_update *update)
 		aspa_array_free(update->old_array, false);
 
 	if (update->operations) {
-		
 		// Update got applied, so release provider arrays of
 		// - records that were removed (reference is inside the corresponding operation)
 		// - records in skipped operations that weren't added to the table
 		if (update->is_applied) {
 			for (size_t i = 0; i < update->operation_count; i++) {
 				struct aspa_update_operation *op = &update->operations[i];
-				
+
 				// Skipped records aren't added to the table, so their provider arrays
 				// must be released.
 				bool can_free_providers = op->type == ASPA_REMOVE || (op->skip && op->type == ASPA_ADD);
-				
+
 				if (can_free_providers && update->operations[i].record.provider_asns) {
 					lrtr_free(update->operations[i].record.provider_asns);
 					update->operations[i].record.provider_asns = NULL;
 				}
 			}
-		} 
-		
+		}
+
 		// Update wasn't applied, so release provider arrays of
 		// - every records in each operation
 		else {
-			
 		}
 
 		lrtr_free(update->operations);
