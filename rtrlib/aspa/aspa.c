@@ -203,6 +203,8 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 		struct aspa_update_operation *current = &operations[i];
 		struct aspa_update_operation *next = (i < count - 1) ? &(operations[i + 1]) : NULL;
 
+		current->skip = false;
+
 		// Sort providers
 		if (current->record.provider_count > 0 && current->record.provider_asns)
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),

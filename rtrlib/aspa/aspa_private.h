@@ -16,7 +16,7 @@
  * # Swap-In Update Mechanism
  * The ASPA table implements aggregated updating using an array of 'add record' and 'remove record' operations --
  * reducing iterations and memory allocations. E.g., these operations can be derived from a RTR cache response
- * containing ASPA PDUs. The ASPA tables **Swap-In** update mechanism both avoids blocking callers who want to
+ * containing ASPA PDUs. The ASPA table's **Swap-In** update mechanism both avoids blocking callers who want to
  * verify an `AS_PATH` (and therefore need read access to the table) while an update is in progress and removes the
  * need for an *undo mechanism* in case the update to the ASPA table itself or some other action performed inbetween fails.
  *
@@ -116,6 +116,7 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
  * @brief A struct describing a specific type of operation that should be performed using the attached ASPA record.
  * @param index A value uniquely identifying this operation's position within the array of operations.
  * @param type The operation's type.
+ * @param skip A boolean value indicating whether this operation has been skipped while creating the update structure.
  * @param record The record that should be added or removed.
  */
 struct aspa_update_operation {
