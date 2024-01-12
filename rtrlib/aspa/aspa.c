@@ -441,12 +441,12 @@ void aspa_table_apply_update(struct aspa_update *update)
 
 void aspa_table_update_finish(struct aspa_update *update)
 {
+	if (!update)
+		return;
+
 	// MARK: Change Lock
 	// We're done with the update, allow changes again.
 	pthread_rwlock_unlock(&update->table->update_lock);
-
-	if (!update)
-		return;
 
 	if (update->old_array) {
 		// We don't need to release provider arrays as this is done below.
