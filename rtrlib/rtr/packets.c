@@ -1089,6 +1089,7 @@ static int rtr_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_tabl
 	for (size_t i = 0; i < pdus_size; i++) {
 		(*operations)[i].type = (aspa_pdus[i]->flags & 1) == 1 ? ASPA_ADD : ASPA_REMOVE;
 		(*operations)[i].index = i;
+		(*operations)[i].skip = false;
 		rtr_aspa_pdu_2_aspa_record(aspa_pdus[i], &(*operations)[i].record);
 	}
 
