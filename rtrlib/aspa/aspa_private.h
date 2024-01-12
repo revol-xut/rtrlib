@@ -34,7 +34,7 @@
  *
  * ## Special Cases
  * `aspa_table_compute_update_internal` handles the complexity arising from multiple announcements and withdrawals
- * in a RTR cache response. There're various cases that need to ve handled appropriately:
+ * in a RTR cache response. There're various cases that need to be handled appropriately:
  *   1. **Announcement of Existing Record**:
  *     The caller attempts to add a record that's already present in the table (`ASPA_DUPLICATE_RECORD`).
  *   2. **Duplicate Announcement**:
@@ -69,7 +69,7 @@
  * about changes once the update is applied.
  *
  * ## Cleanup Considerations
- * Each operations contains a record which in turn may hold a reference to an array of provider ASNs.
+ * Each operation contains a record which in turn may hold a reference to an array of provider ASNs.
  * If the *update is not applied*, the provider arrays in each of the 'add' operations must be released.
  * After *applying the update*:
  *   1. **Removed Records**: Provider arrays of removed records must also be deallocated.
@@ -104,8 +104,8 @@ struct aspa_store_node {
  * @param[in,out] dst The destination table. Existing records associated with the socket are replaced.
  * @param[in,out] src The source table.
  * @param[in,out] rtr_socket The socket the records are associated with.
- * @param notify_dst A boolean value determining whether to notify the destination tables' clients.
- * @param notify_src A boolean value determining whether to notify the source tables' clients.
+ * @param notify_dst A boolean value determining whether to notify the destination table's clients.
+ * @param notify_src A boolean value determining whether to notify the source table's clients.
  */
 enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_table *src, struct rtr_socket *rtr_socket,
 					bool notify_dst, bool notify_src);
@@ -144,8 +144,7 @@ struct aspa_update {
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
  * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
  * @note You should not release the operations array or any associated provider arrays yourself. Instead, rely on
- * calling `aspa_table_update_cleanup` which deallocates both unused provider arrays and the operations array. The ASPA
- * table avoids unnecessarily copying provider arrays and re-uses them instead.
+ * calling `aspa_table_update_cleanup` which deallocates both unused provider arrays and the operations array.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
