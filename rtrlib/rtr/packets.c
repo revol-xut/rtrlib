@@ -1195,7 +1195,6 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 		RTR_DBG1("ASPA records added");
 	}
 
-	// cleanup
 	aspa_table_update_finish(aspa_update);
 
 	// An update attempted above failed
