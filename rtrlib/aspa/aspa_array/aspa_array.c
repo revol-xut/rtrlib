@@ -88,7 +88,8 @@ static enum aspa_status aspa_array_reallocate(struct aspa_array *array)
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record, bool copy_providers)
+enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
+				   bool copy_providers)
 {
 	if (index > array->size)
 		return ASPA_ERROR;
@@ -100,9 +101,9 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 			return ASPA_ERROR;
 		}
 	}
-	
+
 	uint32_t *provider_asns = NULL;
-	
+
 	if (record->provider_count > 0) {
 		if (copy_providers) {
 			size_t provider_size = record->provider_count * sizeof(uint32_t);
@@ -145,9 +146,9 @@ enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record 
 			return ASPA_ERROR;
 		}
 	}
-	
+
 	uint32_t *provider_asns = NULL;
-	
+
 	if (record->provider_count > 0) {
 		if (copy_providers) {
 			size_t provider_size = record->provider_count * sizeof(uint32_t);
@@ -194,7 +195,7 @@ enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool 
 {
 	if (index >= array->size || array->size == 0)
 		return ASPA_ERROR;
-	
+
 	if (free_providers && array->data[index].provider_asns)
 		lrtr_free(array->data[index].provider_asns);
 

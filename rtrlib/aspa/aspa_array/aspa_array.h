@@ -58,7 +58,8 @@ void aspa_array_free(struct aspa_array *array, bool free_provider_arrays);
  * This function assumes that the data field is large enough to fit one more element
  * This method is intended for internal use please use aspa_array_insert instead.
  */
-enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record, bool copy_providers);
+enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
+				   bool copy_providers);
 
 enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool free_providers);
 

@@ -707,8 +707,8 @@ static void rtr_prefix_pdu_2_pfx_record(const struct rtr_socket *rtr_socket, con
 	}
 }
 
-__attribute__((always_inline))
-inline static void rtr_aspa_pdu_2_aspa_operation(struct pdu_aspa *pdu, struct aspa_update_operation *op)
+__attribute__((always_inline)) inline static void rtr_aspa_pdu_2_aspa_operation(struct pdu_aspa *pdu,
+										struct aspa_update_operation *op)
 {
 	op->type = (pdu->flags & 1) == 1 ? ASPA_ADD : ASPA_REMOVE;
 	op->is_no_op = false;
