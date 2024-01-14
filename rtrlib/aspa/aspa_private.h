@@ -94,6 +94,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define ASPA_UPDATE_IN_PLACE 1
+
 /**
  * @brief A linked list storing the bond between a socket and an @c aspa_array .
  */
@@ -137,6 +139,7 @@ struct aspa_update {
 	struct aspa_table *table;
 	struct aspa_update_operation *operations;
 	size_t operation_count;
+	struct aspa_update_operation *failed_operation;
 	struct aspa_store_node *node;
 	struct aspa_array *new_array;
 	struct aspa_array *old_array;
@@ -154,20 +157,15 @@ struct aspa_update {
  * @param[in] rtr_socket The socket the updates originate from.
  * @param[in] operations  Add and remove operations to perform.
  * @param[in] count  Number of operations.
- * @param[in,out] failed_operation The operation responsible for causing the table update failure. @c NULL , if the
- * update succeeded.
- * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL value initially.
- * After the update is computed this pointer points to an initialized update structure.
+ * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL value initially. Points to an update struct after  this function returns.
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
  * exists.
  * @return @c ASPA_ERROR On on failure.
- *
  */
 enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
 					   struct aspa_update_operation *operations, size_t count,
-					   struct aspa_update_operation **failed_operation,
 					   struct aspa_update **update);
 
 /**
@@ -181,6 +179,54 @@ void aspa_table_apply_update(struct aspa_update *update);
  * @param update The update struct to free
  */
 void aspa_table_update_finish(struct aspa_update *update);
+
+// MARK: - In-Place Update Mechanism
+
+/**
+ * @brief Updates the given ASPA table.
+ *
+ * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
+ * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
+ *
+ * @param[in] aspa_table ASPA table to store new ASPA data in.
+ * @param[in] rtr_socket The socket the updates originate from.
+ * @param[in] operations  Add and remove operations to perform.
+ * @param[in] count  Number of operations.
+ * @param[out] failed_operation Failed operation, filled in if update fails.
+ * @return @c ASPA_SUCCESS On success.
+ * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
+ * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
+ * exists.
+ * @return @c ASPA_ERROR On on failure.
+ */
+enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+				   struct aspa_update_operation *operations, size_t count,
+				   struct aspa_update_operation **failed_operation);
+
+/**
+ * @brief Tries to undo operations up to @p failed_operation and then releases all operations.
+ *
+ * @param[in] aspa_table ASPA table to store new ASPA data in.
+ * @param[in] rtr_socket The socket the updates originate from.
+ * @param[in] operations  Add and remove operations to perform.
+ * @param[in] count  Number of operations.
+ * @param[in] failed_operation Failed operation.
+ * @return @c ASPA_SUCCESS On success.
+ * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
+ * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
+ * exists.
+ * @return @c ASPA_ERROR On on failure.
+ */
+enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+					struct aspa_update_operation *operations, size_t count,
+					struct aspa_update_operation *failed_operation);
+
+/**
+ * @brief Releases operations.
+ * @param[in] operations  Add and remove operations.
+ * @param[in] count  Number of operations.
+ */
+void aspa_table_free_operations(struct aspa_update_operation *operations, size_t count);
 
 // MARK: - Verification
 
