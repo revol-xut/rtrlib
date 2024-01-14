@@ -95,6 +95,7 @@
 #include <stdint.h>
 
 #define ASPA_UPDATE_IN_PLACE 1
+#define ASPA_NOTIFY_NO_OPS 1
 
 /**
  * @brief A linked list storing the bond between a socket and an @c aspa_array .
@@ -124,12 +125,13 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
  * @param type The operation's type.
  * @param skip A boolean value indicating whether this operation has been skipped while creating the update structure.
  * @param record The record that should be added or removed.
+ * @param is_no_op A boolean value determining whether this operation is part of a pair of 'add $CAS' and 'remove $CAS' operations that form a no-op.
  */
 struct aspa_update_operation {
 	size_t index;
 	enum aspa_operation_type type;
-	bool skip;
 	struct aspa_record record;
+	bool is_no_op;
 };
 
 /**
@@ -142,8 +144,6 @@ struct aspa_update {
 	struct aspa_update_operation *failed_operation;
 	struct aspa_store_node *node;
 	struct aspa_array *new_array;
-	struct aspa_array *old_array;
-	bool is_applied;
 };
 
 /**
@@ -222,11 +222,11 @@ enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rt
 					struct aspa_update_operation *failed_operation);
 
 /**
- * @brief Releases operations.
+ * @brief Releases operations and unused provider arrays.
  * @param[in] operations  Add and remove operations.
  * @param[in] count  Number of operations.
  */
-void aspa_table_free_operations(struct aspa_update_operation *operations, size_t count);
+void aspa_table_update_cleanup(struct aspa_update_operation *operations, size_t count);
 
 // MARK: - Verification
 

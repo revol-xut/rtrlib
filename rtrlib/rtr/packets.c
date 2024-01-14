@@ -707,6 +707,16 @@ static void rtr_prefix_pdu_2_pfx_record(const struct rtr_socket *rtr_socket, con
 	}
 }
 
+__attribute__((always_inline))
+inline static void rtr_aspa_pdu_2_aspa_operation(struct pdu_aspa *pdu, struct aspa_update_operation *op)
+{
+	op->type = (pdu->flags & 1) == 1 ? ASPA_ADD : ASPA_REMOVE;
+	op->is_no_op = false;
+	op->record.customer_asn = pdu->customer_asn;
+	op->record.provider_count = (op->type == ASPA_ADD) ? pdu->provider_count : 0;
+	op->record.provider_asns = (op->type == ASPA_ADD) ? pdu->provider_asns : NULL;
+}
+
 /**
  * @brief Removes all Prefix from the @p pfx_table with flag field == ADD, ADDs all Prefix PDU to the @p pfx_table with flag
  * field == REMOVE.
@@ -1068,27 +1078,8 @@ static int rtr_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_tabl
 	*ops = operations;
 
 	for (size_t i = 0; i < pdu_count; i++) {
-		struct pdu_aspa *pdu = aspa_pdus[i];
-		struct aspa_update_operation *op = &operations[i];
-
-		op->type = (pdu->flags & 1) == 1 ? ASPA_ADD : ASPA_REMOVE;
-		op->index = i;
-		op->skip = false;
-
-		// Create record from PDU
-		op->record.customer_asn = pdu->customer_asn;
-
-		// 'Remove' operations must not have a provider array
-		if (op->type == ASPA_ADD) {
-			op->record.provider_count = pdu->provider_count;
-
-			size_t provider_size = pdu->provider_count * sizeof(uint32_t);
-			op->record.provider_asns = lrtr_malloc(provider_size);
-			memcpy(op->record.provider_asns, pdu->provider_asns, provider_size);
-		} else {
-			op->record.provider_count = 0;
-			op->record.provider_asns = NULL;
-		}
+		rtr_aspa_pdu_2_aspa_operation(aspa_pdus[i], &operations[i]);
+		operations[i].index = i;
 	}
 
 	enum aspa_status res = aspa_table_update(aspa_table, rtr_socket, operations, pdu_count, failed_operation);
@@ -1140,27 +1131,8 @@ static int rtr_compute_update_aspa_table(struct rtr_socket *rtr_socket, struct a
 	}
 
 	for (size_t i = 0; i < pdu_count; i++) {
-		struct pdu_aspa *pdu = aspa_pdus[i];
-		struct aspa_update_operation *op = &operations[i];
-
-		op->type = (pdu->flags & 1) == 1 ? ASPA_ADD : ASPA_REMOVE;
-		op->index = i;
-		op->skip = false;
-
-		// Create record from PDU
-		op->record.customer_asn = pdu->customer_asn;
-
-		// 'Remove' operations must not have a provider array
-		if (op->type == ASPA_ADD) {
-			op->record.provider_count = pdu->provider_count;
-
-			size_t provider_size = pdu->provider_count * sizeof(uint32_t);
-			op->record.provider_asns = lrtr_malloc(provider_size);
-			memcpy(op->record.provider_asns, pdu->provider_asns, provider_size);
-		} else {
-			op->record.provider_count = 0;
-			op->record.provider_asns = NULL;
-		}
+		rtr_aspa_pdu_2_aspa_operation(aspa_pdus[i], &operations[i]);
+		operations[i].index = i;
 	}
 
 	enum aspa_status res = aspa_table_compute_update(aspa_table, rtr_socket, operations, pdu_count, update);
@@ -1306,7 +1278,7 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 		RTR_DBG1("ASPA update computed");
 	}
 
-	aspa_table_free_operations(aspa_operations, aspa_pdu_count);
+	aspa_table_update_cleanup(aspa_operations, aspa_pdu_count);
 	aspa_operations = NULL;
 	aspa_failed_operation = NULL;
 #else
