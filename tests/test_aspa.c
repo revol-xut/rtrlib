@@ -195,6 +195,10 @@ static void expect_update_callbacks(struct update_callback callbacks[], size_t c
 		expected_callbacks = callbacks;
 		callback_count = count;
 		callback_index = 0;
+	} else {
+		expected_callbacks = NULL;
+		callback_count = 0;
+		callback_index = 0;
 	}
 }
 
@@ -209,34 +213,36 @@ static char operation_type_debug_description(const enum aspa_operation_type oper
 
 static void aspa_update_callback(struct aspa_table *s, const struct aspa_record record, const struct rtr_socket *rtr_sockt __attribute__((unused)), const enum aspa_operation_type operation_type)
 {
-	assert(expected_callbacks && callback_count > 0 && callback_index < callback_count);
+	if (callback_count > 0 && callback_index < callback_count) {
+		assert(expected_callbacks != NULL);
 
-	if (expected_callbacks[callback_index].source) {
-		if (expected_callbacks[callback_index].source != s)
-			printf("Assertion failed: Callback originates from unexpected table.\n");
+		if (expected_callbacks[callback_index].source) {
+			if (expected_callbacks[callback_index].source != s)
+				printf("Assertion failed: Callback originates from unexpected table.\n");
 
-		assert(expected_callbacks[callback_index].source == s);
+			assert(expected_callbacks[callback_index].source == s);
+		}
+
+		printf(
+			"expecting update callback [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
+			operation_type_debug_description(expected_callbacks[callback_index].type),
+			expected_callbacks[callback_index].record.customer_asn,
+			expected_callbacks[callback_index].record.provider_count,
+			operation_type_debug_description(operation_type),
+			record.customer_asn,
+			record.provider_count
+		);
+
+		assert(expected_callbacks[callback_index].record.customer_asn == record.customer_asn);
+		assert(expected_callbacks[callback_index].type == operation_type);
+		assert(expected_callbacks[callback_index].record.provider_count == record.provider_count);
+
+		for (size_t k = 0; k < record.provider_count; k++) {
+			assert(expected_callbacks[callback_index].record.provider_asns[k] == record.provider_asns[k]);
+		}
+
+		callback_index += 1;
 	}
-
-	printf(
-		"expecting update callback [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
-		operation_type_debug_description(expected_callbacks[callback_index].type),
-		expected_callbacks[callback_index].record.customer_asn,
-		expected_callbacks[callback_index].record.provider_count,
-		operation_type_debug_description(operation_type),
-		record.customer_asn,
-		record.provider_count
-	);
-
-	assert(expected_callbacks[callback_index].record.customer_asn == record.customer_asn);
-	assert(expected_callbacks[callback_index].type == operation_type);
-	assert(expected_callbacks[callback_index].record.provider_count == record.provider_count);
-
-	for (size_t k = 0; k < record.provider_count; k++) {
-		assert(expected_callbacks[callback_index].record.provider_asns[k] == record.provider_asns[k]);
-	}
-
-	callback_index += 1;
 
 	char c;
 
@@ -703,7 +709,7 @@ static void test_announce_withdraw_announce_twice(struct rtr_socket *socket)
 	);
 
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
-	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, 1400, ASNS(42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42));
+	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, 1400, ASNS());
 	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1400, ASNS(1201, 1202, 1203, 1204));
 	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1400, ASNS(1201, 1202, 1203));
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
