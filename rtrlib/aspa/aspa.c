@@ -622,7 +622,6 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
-				next
 #ifdef ASPA_NOTIFY_NO_OPS
 				// If it's a remove operation, we insert a reference to the removed record's providers.
 				next->record = current->record;
