@@ -778,6 +778,8 @@ static void test_long(struct rtr_socket *socket)
 		RECORD(2, ASNS(3, 4, 5, 6)),
 	);
 
+	uint32_t provider_asns[2056*4+3];
+
 	for(int i = 1; i < 1028; i++) {
 		begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, i, ASNS());
@@ -798,15 +800,14 @@ static void test_long(struct rtr_socket *socket)
 		struct aspa_record records[i+2];
 
 		for (int j = i+1; j <= 2*i+2; j++) {
-			uint32_t *provider_asns = lrtr_malloc(sizeof(uint32_t) * 4);
 			for (int k = 0; k < 4; k++) {
-				provider_asns[k] = j+k+1;
+				provider_asns[4*j+k] = j+k+1;
 			}
 			records[j-i-1] =
 				((struct aspa_record) { \
 					.customer_asn = j, \
 					.provider_count = 4, \
-					.provider_asns = provider_asns \
+					.provider_asns = &provider_asns[4*j] \
 				});
 		}
 		assert_table(socket, records, i+2);
