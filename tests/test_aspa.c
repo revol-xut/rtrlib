@@ -63,6 +63,9 @@ struct update_callback {
 		(size_t)(sizeof(_LINEVAR(_records)) / sizeof(struct aspa_record)) \
 	)
 
+#define ASSERT_EMPTY_TABLE(socket, ...) \
+	assert_table(socket, NULL, 0)
+
 #define ADDED(rec) (struct update_callback) { \
 	.source = NULL, .record = rec, .type = ASPA_ADD \
 }
@@ -322,6 +325,31 @@ static void test_regular_announcement(struct rtr_socket *socket)
 	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
+}
+
+static void test_withdraw(struct rtr_socket *socket)
+{
+	// Test: Withdraw existing record
+	// Expect: OK
+	// DB: record gets removed
+
+	// announces 1100 -> 1101, 1102, 1103, 1104
+	test_regular_announcement(socket);
+
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+	// accept ASNs in withdraw PDU
+	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, 1100, ASNS(42));
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
+
+	EXPECT_UPDATE_CALLBACKS(
+		REMOVED(RECORD(1100, ASNS(1101, 1102, 1103, 1104))),
+	);
+
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+
+	assert(callback_index == callback_count);
+
+	ASSERT_EMPTY_TABLE(socket);
 }
 
 static void test_regular_announcements(struct rtr_socket *socket)
@@ -827,6 +855,12 @@ static void run_tests(bool is_resetting)
 	printf("\nTEST: regular_announcements\n");
 	socket = create_socket(is_resetting);
 	test_regular_announcements(socket);
+
+	cleanup(&socket);
+
+	printf("\nTEST: withdraw\n");
+	socket = create_socket(is_resetting);
+	test_withdraw(socket);
 
 	cleanup(&socket);
 
