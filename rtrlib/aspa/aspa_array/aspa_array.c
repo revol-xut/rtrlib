@@ -53,9 +53,6 @@ void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 	}
 
 	if (array->data) {
-		// freeing the data
-		lrtr_free(array->data);
-
 		if (free_provider_arrays) {
 			for (size_t i = 0; i < array->size; i++) {
 				if (array->data[i].provider_asns) {
@@ -64,6 +61,9 @@ void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 				}
 			}
 		}
+
+		// freeing the data
+		lrtr_free(array->data);
 	}
 
 	// freeing the array itself
