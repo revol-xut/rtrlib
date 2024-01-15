@@ -226,6 +226,7 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 			assert(expected_callbacks[callback_index].source == s);
 		}
 
+		/*
 		printf(
 			"expecting update callback [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
 			operation_type_debug_description(expected_callbacks[callback_index].type),
@@ -235,6 +236,7 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 			record.customer_asn,
 			record.provider_count
 		);
+		*/
 
 		assert(expected_callbacks[callback_index].record.customer_asn == record.customer_asn);
 		assert(expected_callbacks[callback_index].type == operation_type);
@@ -295,11 +297,12 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	assert(array->data);
 
 	for (size_t i = 0; i < record_count; i++) {
-		printf("expecting %u, %u present.\n", records[i].customer_asn, array->data[i].customer_asn);
+		// printf("expecting %u, %u present.\n", records[i].customer_asn, array->data[i].customer_asn);
 		assert(array->data[i].customer_asn == records[i].customer_asn);
 		assert(array->data[i].provider_count == records[i].provider_count);
 
 		for (size_t k = 0; k < records[i].provider_count; k++) {
+			// printf("expecting prov %u, %u present.\n", array->data[i].provider_asns[k], records[i].provider_asns[k]);
 			assert(array->data[i].provider_asns[k] == records[i].provider_asns[k]);
 		}
 	}
@@ -751,6 +754,65 @@ static void test_announce_withdraw_announce_twice(struct rtr_socket *socket)
 	);
 }
 
+static void test_long(struct rtr_socket *socket)
+{
+	// Test: lots of regular announcements & withdrawals
+	// Expect: OK
+	// DB: records get removed, newly announced are added
+
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1, ASNS(2, 3, 4, 5));
+	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 2, ASNS(3, 4, 5, 6));
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 437);
+
+	EXPECT_UPDATE_CALLBACKS(
+		ADDED(RECORD(1, ASNS(2, 3, 4, 5))),
+		ADDED(RECORD(2, ASNS(3, 4, 5, 6))),
+	);
+
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
+
+	ASSERT_TABLE(socket,
+		RECORD(1, ASNS(2, 3, 4, 5)),
+		RECORD(2, ASNS(3, 4, 5, 6)),
+	);
+
+	for(int i = 1; i < 1028; i++) {
+		begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, i, ASNS());
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 2*i+1, ASNS(2*i+2, 2*i+3, 2*i+4, 2*i+5));
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 2*i+2, ASNS(2*i+3, 2*i+4, 2*i+5, 2*i+6));
+		end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
+
+		EXPECT_UPDATE_CALLBACKS(
+			REMOVED(RECORD(i, ASNS(i+1, i+2, i+3, i+4))),
+			ADDED(RECORD(2*i+1, ASNS(2*i+2, 2*i+3, 2*i+4, 2*i+5))),
+			ADDED(RECORD(2*i+2, ASNS(2*i+3, 2*i+4, 2*i+5, 2*i+6))),
+		);
+		assert(rtr_sync(socket) == RTR_SUCCESS);
+		assert(callback_index == callback_count);
+
+		printf("array size: %d\n", socket->aspa_table->store->aspa_array->size);
+
+		struct aspa_record records[i+2];
+
+		for (int j = i+1; j <= 2*i+2; j++) {
+			uint32_t *provider_asns = lrtr_malloc(sizeof(uint32_t) * 4);
+			for (int k = 0; k < 4; k++) {
+				provider_asns[k] = j+k+1;
+			}
+			records[j-i-1] =
+				((struct aspa_record) { \
+					.customer_asn = j, \
+					.provider_count = 4, \
+					.provider_asns = provider_asns \
+				});
+		}
+		assert_table(socket, records, i+2);
+	}
+}
+
 static void test_corrupt(struct rtr_socket *socket)
 {
 	// Test: send corrupt pdu after having received valid data
@@ -919,6 +981,12 @@ static void run_tests(bool is_resetting)
 	printf("\nTEST: announce_withdraw_announce_twice\n");
 	socket = create_socket(is_resetting);
 	test_announce_withdraw_announce_twice(socket);
+
+	cleanup(&socket);
+
+	printf("\nTEST: long\n");
+	socket = create_socket(is_resetting);
+	test_long(socket);
 
 	cleanup(&socket);
 }
