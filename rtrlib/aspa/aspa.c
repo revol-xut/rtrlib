@@ -389,10 +389,8 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 	}
 
 	// Append remaining records (reuse existing provider array)
-	if (existing_i < array->size) {
-		for (; existing_i < array->size; existing_i++) {
-			aspa_array_append(new_array, aspa_array_get_record(array, existing_i), false);
-		}
+	for (; existing_i < array->size; existing_i++) {
+		aspa_array_append(new_array, aspa_array_get_record(array, existing_i), false);
 	}
 
 	return ASPA_SUCCESS;
