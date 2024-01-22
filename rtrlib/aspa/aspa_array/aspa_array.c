@@ -141,7 +141,7 @@ enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record 
 {
 	// check if this element will fit into the vector
 	if (array->size >= array->capacity) {
-		// increasing the vectors size so the new element fits
+		// increasing the vectors' size so the new element fits
 		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
 			return ASPA_ERROR;
 		}
