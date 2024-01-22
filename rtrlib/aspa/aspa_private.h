@@ -42,7 +42,7 @@
  * and `aspa_table_finish_update`.
  *
  * ## In-Place Update Mechanism
- * The ASPA table's **Swap-In** update mechanism involves in-place modifications to the array of records and an undo function
+ * The ASPA table's **In-Place** update mechanism involves in-place modifications to the array of records and an undo function
  * that undoes changes made previously.
  *
  * Performing an update using this mechanism involves these steps:
