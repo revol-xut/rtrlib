@@ -163,8 +163,7 @@ struct aspa_update {
  * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL value initially. Points to an update struct after  this function returns.
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
- * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
- * exists.
+ * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already exists.
  * @return @c ASPA_ERROR On on failure.
  */
 enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
