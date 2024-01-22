@@ -17,7 +17,7 @@
  * ASPA tables implement aggregated updating using an array of 'add record' and 'remove record' operations --
  * reducing iterations and memory allocations.  E.g., these operations can be derived from a RTR cache response.
  * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use
- * `ASPA_UPDATE_IN_PLACE` (define if **In-Place**) to use toggle which implementation is used in the RTR module.
+ * `ASPA_UPDATE_IN_PLACE` (define if **In-Place**) to configure the implementation used in the RTR module.
  * The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers
  * about changes once the update is applied.
  *
