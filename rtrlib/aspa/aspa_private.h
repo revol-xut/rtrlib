@@ -206,7 +206,7 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 				   struct aspa_update_operation **failed_operation);
 
 /**
- * @brief Tries to undo operations up to @p failed_operation and then releases all operations.
+ * @brief Tries to undo @c operations up to @p failed_operation and then releases all operations.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
