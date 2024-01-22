@@ -114,8 +114,8 @@ static void test_remove_element()
 
 	assert(vector->data[2].customer_asn == 3);
 
-	assert(aspa_array_free_entry(vector, &vector->data[2]) == 0);
-	assert(aspa_array_free_entry(vector, &vector->data[100]) == -1);
+	assert(aspa_array_remove(vector, 2, true) == ASPA_SUCCESS);
+	assert(aspa_array_remove(vector, 100, true) == ASPA_ERROR);
 
 	assert(vector->size == 3);
 	assert(vector->data[0].customer_asn == 1);

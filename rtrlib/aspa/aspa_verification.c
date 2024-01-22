@@ -53,6 +53,9 @@ enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t cust
 
 		customer_found = true;
 
+		// Provider ASNs are sorted in ascending order.
+		// We consider this an implementation detail, callers must not make any assumptions on the
+		// ordering of provider ASNs.
 		uint32_t *provider =
 			binary_search_asns(provider_asn, aspa_record->provider_asns, aspa_record->provider_count);
 
@@ -63,8 +66,8 @@ enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t cust
 	return customer_found ? ASPA_NOT_PROVIDER_PLUS : ASPA_NO_ATTESTATION;
 }
 
-enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							   size_t len)
+static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_table *aspa_table, uint32_t as_path[],
+								  size_t len)
 {
 	// Optimized AS_PATH verification algorithm using zero based array
 	// where the origin AS has index N - 1 and the latest AS in the AS_PATH
@@ -133,8 +136,8 @@ enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_table *as
 	return ASPA_AS_PATH_UNKNOWN;
 }
 
-enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							     size_t len)
+static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_table *aspa_table, uint32_t as_path[],
+								    size_t len)
 {
 	// Optimized AS_PATH verification algorithm using zero based array
 	// where the origin AS has index N - 1 and the latest AS in the AS_PATH

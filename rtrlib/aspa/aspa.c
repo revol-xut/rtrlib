@@ -243,7 +243,7 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
 	return ASPA_SUCCESS;
 }
 
-// MARK: - ASPA table update functions
+// MARK: - Updating an ASPA table
 
 static int compare_update_operations(const void *a, const void *b)
 {
@@ -268,12 +268,13 @@ static int compare_asns(const void *a, const void *b)
 	return *(uint32_t *)a - *(uint32_t *)b;
 }
 
+#if ASPA_UPDATE_MECHANISM == ASPA_SWAP_IN
 // MARK: - Swap-In Update Mechanism
 
 /**
  * @brief This function fills the given @p new_array with records based on a number of 'add' and 'remove' operations.
  */
-static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rtr_socket, struct aspa_array *array,
+static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rtr_socket, struct aspa_array *array,
 							   struct aspa_array *new_array,
 							   struct aspa_update_operation *operations, size_t count,
 							   struct aspa_update_operation **failed_operation)
@@ -292,7 +293,9 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 			assert(current->record.provider_asns == NULL);
 		}
 
-		// Sort providers
+		// Sort providers.
+		// We consider this an implementation detail, callers must not make any assumptions on the
+		// ordering of provider ASNs.
 		if (current->record.provider_count > 0 && current->record.provider_asns)
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),
 			      compare_asns);
@@ -396,9 +399,9 @@ static enum aspa_status aspa_table_compute_update_internal(struct rtr_socket *rt
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					   struct aspa_update_operation *operations, size_t count,
-					   struct aspa_update **update)
+enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+						   struct aspa_update_operation *operations, size_t count,
+						   struct aspa_update **update)
 {
 	if (!rtr_socket || !operations || count == 0 || !update)
 		return ASPA_ERROR;
@@ -458,7 +461,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 
 	// Populate new_array
 	pthread_rwlock_rdlock(&aspa_table->lock);
-	enum aspa_status res = aspa_table_compute_update_internal(rtr_socket, (*node)->aspa_array, new_array,
+	enum aspa_status res = aspa_table_update_compute_internal(rtr_socket, (*node)->aspa_array, new_array,
 								  operations, count, &(*update)->failed_operation);
 	pthread_rwlock_unlock(&aspa_table->lock);
 
@@ -476,7 +479,7 @@ enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct
 	return res;
 }
 
-void aspa_table_apply_update(struct aspa_update *update)
+void aspa_table_update_swap_in_apply(struct aspa_update *update)
 {
 	// Not going to re-apply update or apply if computation failed
 	if (!update || !update->table || !update->operations || !update->node || !update->new_array ||
@@ -526,7 +529,7 @@ void aspa_table_apply_update(struct aspa_update *update)
 	update->node = NULL;
 }
 
-void aspa_table_update_finish(struct aspa_update *update)
+void aspa_table_update_swap_in_finish(struct aspa_update *update)
 {
 	if (!update)
 		return;
@@ -541,11 +544,12 @@ void aspa_table_update_finish(struct aspa_update *update)
 	lrtr_free(update);
 }
 
+#elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
 // MARK: - In-Place Update Mechanism
 
-enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-				   struct aspa_update_operation *operations, size_t count,
-				   struct aspa_update_operation **failed_operation)
+enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+					    struct aspa_update_operation *operations, size_t count,
+					    struct aspa_update_operation **failed_operation)
 {
 	if (!rtr_socket || !operations || count == 0 || !failed_operation)
 		return ASPA_ERROR;
@@ -589,7 +593,9 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 			assert(current->record.provider_asns == NULL);
 		}
 
-		// Sort providers
+		// Sort providers.
+		// We consider this an implementation detail, callers must not make any assumptions on the
+		// ordering of provider ASNs.
 		if (current->record.provider_count > 0 && current->record.provider_asns)
 			qsort(current->record.provider_asns, current->record.provider_count, sizeof(uint32_t),
 			      compare_asns);
@@ -674,9 +680,10 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
 	return ASPA_SUCCESS;
 }
 
-static enum aspa_status aspa_table_undo_update_internal(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-							struct aspa_update_operation *operations, size_t count,
-							struct aspa_update_operation *failed_operation)
+static enum aspa_status aspa_table_update_in_place_undo_internal(struct aspa_table *aspa_table,
+								 struct rtr_socket *rtr_socket,
+								 struct aspa_update_operation *operations, size_t count,
+								 struct aspa_update_operation *failed_operation)
 {
 	pthread_rwlock_wrlock(&aspa_table->lock);
 	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
@@ -795,9 +802,9 @@ static enum aspa_status aspa_table_undo_update_internal(struct aspa_table *aspa_
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					struct aspa_update_operation *operations, size_t count,
-					struct aspa_update_operation *failed_operation)
+enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+						 struct aspa_update_operation *operations, size_t count,
+						 struct aspa_update_operation *failed_operation)
 {
 	if (!rtr_socket || !operations)
 		return ASPA_ERROR;
@@ -806,7 +813,7 @@ enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rt
 		return ASPA_SUCCESS;
 
 	enum aspa_status res =
-		aspa_table_undo_update_internal(aspa_table, rtr_socket, operations, count, failed_operation);
+		aspa_table_update_in_place_undo_internal(aspa_table, rtr_socket, operations, count, failed_operation);
 
 	for (size_t i = 0; i < count; i++) {
 		struct aspa_update_operation *op = &operations[i];
@@ -822,7 +829,7 @@ enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rt
 	return res;
 }
 
-void aspa_table_update_cleanup(struct aspa_update_operation *operations, size_t count)
+void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations, size_t count)
 {
 	if (!operations || count == 0)
 		return;
@@ -844,3 +851,6 @@ void aspa_table_update_cleanup(struct aspa_update_operation *operations, size_t 
 
 	lrtr_free(operations);
 }
+#else
+#error "Invalid ASPA_UPDATE_MECHANISM value."
+#endif /* ASPA_UPDATE_MECHANISM */

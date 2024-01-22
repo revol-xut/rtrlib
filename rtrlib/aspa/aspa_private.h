@@ -16,10 +16,10 @@
  * # Updating an ASPA table
  * ASPA tables implement aggregated updating using an array of 'add record' and 'remove record' operations --
  * reducing iterations and memory allocations.  E.g., these operations can be derived from a RTR cache response.
- * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use
- * `ASPA_UPDATE_IN_PLACE` (define if **In-Place**) to configure the implementation used in the RTR module.
- * The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers
- * about changes once the update is applied.
+ * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use the macro
+ * `ASPA_UPDATE_MECHANISM` (must be either`ASPA_SWAP_IN` or `"ASPA_IN_PLACE"`) to configure the update implementation.
+ * used. The two implementations must not be used simultaneously. The array of operations is effectively a diff to the table's
+ * previous state. This diff can be conveniently used to notify callers about changes once the update is applied.
  *
  * ## Swap-In Update Mechanism
  * The ASPA table's **Swap-In** update mechanism avoids blocking callers who want to
@@ -28,18 +28,18 @@
  *
  * Performing an update using this mechanism involves these steps:
  * - **Compute Update**:
- *   Every time you want to update a given ASPA table, call `aspa_table_compute_update`. This will create a new ASPA
+ *   Every time you want to update a given ASPA table, call `aspa_table_update_swap_in_compute`. This will create a new ASPA
  *   array, appending both existing records and new records. Everything needed to update the table is stored in an update structure.
  * - **Apply Update** (optional):
- *   You may, but do not need to, apply the update to the table using `aspa_table_apply_update`. This will swap in the
+ *   You may, but do not need to, apply the update to the table using `aspa_table_update_swap_in_apply`. This will swap in the
  *   newly created ASPA array in the table and notify clients about changes made to records during the update.
  * - **Finish Update** (mandatory):
  *   After computing the update -- regardless of whether said computation failed -- you must perform a finishing step
- *   using `aspa_table_finish_update`. This will deallocate provider arrays and other data created during the update
+ *   using `aspa_table_update_swap_in_finish`. This will deallocate provider arrays and other data created during the update
  *   that's now unused.
  *
- * The implementation guarantess no changes are made to the ASPA table between calling `aspa_table_compute_update`
- * and `aspa_table_finish_update`.
+ * The implementation guarantess no changes are made to the ASPA table between calling `aspa_table_update_swap_in_compute`
+ * and `aspa_table_update_swap_in_finish`.
  *
  * ## In-Place Update Mechanism
  * The ASPA table's **In-Place** update mechanism involves in-place modifications to the array of records and an undo function
@@ -47,13 +47,13 @@
  *
  * Performing an update using this mechanism involves these steps:
  *  - **Update**:
- *   Every time you want to update a given ASPA table, call `aspa_table_update`. This will modify the ASPA
+ *   Every time you want to update a given ASPA table, call `aspa_table_update_in_place`. This will modify the ASPA
  *   array. If the update fails, `failed_operation` will be set to the operation where the error occuring.
  * - **Undo Update** (optional):
- *   You may, but do not need to, undo the update using `aspa_table_undo_update`. This will undo all operations up
+ *   You may, but do not need to, undo the update using `aspa_table_update_in_place_undo`. This will undo all operations up
  *   to `failed_operation` or all operations.
  * - **Clean Up**:
- *   After computing the update you should go through a cleanup step using `aspa_table_update_cleanup`. This 
+ *   After computing the update you should go through a cleanup step using `aspa_table_update_in_place_cleanup`. This 
  *   will deallocate provider arrays and other data created during the update that's now unused.
  *
  * ## Special Cases
@@ -97,11 +97,28 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ASPA_UPDATE_IN_PLACE 1
+#define ASPA_IN_PLACE 'P'
+#define ASPA_SWAP_IN 'S'
+#define ASPA_UPDATE_MECHANISM ASPA_IN_PLACE
 #define ASPA_NOTIFY_NO_OPS 1
 
+// MARK: - Verification
+
+enum aspa_hop_result { ASPA_NO_ATTESTATION, ASPA_NOT_PROVIDER_PLUS, ASPA_PROVIDER_PLUS };
+
 /**
- * @brief A linked list storing the bond between a socket and an @c aspa_array .
+ * @brief Checks a hop in the given @c AS_PATH .
+ * @return @c aspa_hop_result .
+ */
+enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
+
+// MARK: - Storage
+/**
+ * @brief A linked list storing the bond between a @c rtr_socket and an @c aspa_array .
+ *
+ * @param aspa_array The node's array of ASPA records.
+ * @param rtr_socket The socket the records originate from.
+ * @param next Next node in the linked list.
  */
 struct aspa_store_node {
 	struct aspa_array *aspa_array;
@@ -111,22 +128,23 @@ struct aspa_store_node {
 
 /**
  * @brief Replaces all ASPA records associated with the given socket with the records in the src table.
+ *
  * @param[in,out] dst The destination table. Existing records associated with the socket are replaced.
  * @param[in,out] src The source table.
  * @param[in,out] rtr_socket The socket the records are associated with.
  * @param notify_dst A boolean value determining whether to notify the destination table's clients.
  * @param notify_src A boolean value determining whether to notify the source table's clients.
+ * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
 enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_table *src, struct rtr_socket *rtr_socket,
 					bool notify_dst, bool notify_src);
 
-// MARK: - Swap-In Update Mechanism
-
+// MARK: - Updating
 /**
  * @brief A struct describing a specific type of operation that should be performed using the attached ASPA record.
+ *
  * @param index A value uniquely identifying this operation's position within the array of operations.
  * @param type The operation's type.
- * @param skip A boolean value indicating whether this operation has been skipped while creating the update structure.
  * @param record The record that should be added or removed.
  * @param is_no_op A boolean value determining whether this operation is part of a pair of 'add $CAS' and 'remove $CAS' operations that form a no-op.
  */
@@ -137,8 +155,18 @@ struct aspa_update_operation {
 	bool is_no_op;
 };
 
+#if ASPA_UPDATE_MECHANISM == ASPA_SWAP_IN
+// MARK: - Swap-In Update Mechanism
 /**
  * @brief Computed ASPA update.
+ *
+ * @param table The ASPA table the update was computed for.
+ * @param operations The array of update operations used to compute this update.
+ * @param operation_count The number of update operations in the operations array.
+ * @param failed_operation An optional pointer to the operation that failed.
+ * @param node The node in the given ASPA table's store whose ASPA array is going to be replaced
+ * by @p new_array if this update is applied.
+ * @param new_array The new ASPA array replacing the node's existing array.
  */
 struct aspa_update {
 	struct aspa_table *table;
@@ -154,7 +182,8 @@ struct aspa_update {
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
  * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
- * @note You must call @c aspa_table_finish_update afterwards.
+ * @note This function acquires an update lock on the given ASPA table ensuring no mutations occur while computing the update or before the update is applied.
+ * You must call @c aspa_table_finish_update afterwards to unlock the update lock.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
@@ -164,24 +193,27 @@ struct aspa_update {
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already exists.
- * @return @c ASPA_ERROR On on failure.
+ * @return @c ASPA_ERROR On other failures.
  */
-enum aspa_status aspa_table_compute_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					   struct aspa_update_operation *operations, size_t count,
-					   struct aspa_update **update);
+enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+						   struct aspa_update_operation *operations, size_t count,
+						   struct aspa_update **update);
 
 /**
- * @brief Applys the given update, as previously computed by @c aspa_table_compute_update
+ * @brief Applys the given update, as previously computed by @c aspa_table_update_swap_in_compute .
+ *
  * @param update The update that will be applied.
  */
-void aspa_table_apply_update(struct aspa_update *update);
+void aspa_table_update_swap_in_apply(struct aspa_update *update);
 
 /**
- * @brief Finishes the update.
+ * @brief Finishes the update, releases memory allocated while computing the update and unlocks update lock.
+ *
  * @param update The update struct to free
  */
-void aspa_table_update_finish(struct aspa_update *update);
+void aspa_table_update_swap_in_finish(struct aspa_update *update);
 
+#elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
 // MARK: - In-Place Update Mechanism
 
 /**
@@ -199,11 +231,11 @@ void aspa_table_update_finish(struct aspa_update *update);
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
  * exists.
- * @return @c ASPA_ERROR On on failure.
+ * @return @c ASPA_ERROR On other failures.
  */
-enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-				   struct aspa_update_operation *operations, size_t count,
-				   struct aspa_update_operation **failed_operation);
+enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+					    struct aspa_update_operation *operations, size_t count,
+					    struct aspa_update_operation **failed_operation);
 
 /**
  * @brief Tries to undo @c operations up to @p failed_operation and then releases all operations.
@@ -217,28 +249,21 @@ enum aspa_status aspa_table_update(struct aspa_table *aspa_table, struct rtr_soc
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
  * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already
  * exists.
- * @return @c ASPA_ERROR On on failure.
+ * @return @c ASPA_ERROR On other failures.
  */
-enum aspa_status aspa_table_undo_update(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
-					struct aspa_update_operation *operations, size_t count,
-					struct aspa_update_operation *failed_operation);
+enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
+						 struct aspa_update_operation *operations, size_t count,
+						 struct aspa_update_operation *failed_operation);
 
 /**
  * @brief Releases operations and unused provider arrays.
  * @param[in] operations  Add and remove operations.
  * @param[in] count  Number of operations.
  */
-void aspa_table_update_cleanup(struct aspa_update_operation *operations, size_t count);
+void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations, size_t count);
+#else
+#error "Invalid ASPA_UPDATE_MECHANISM value."
+#endif /* ASPA_UPDATE_MECHANISM */
 
-// MARK: - Verification
-
-enum aspa_hop_result { ASPA_NO_ATTESTATION, ASPA_NOT_PROVIDER_PLUS, ASPA_PROVIDER_PLUS };
-
-/**
- * @brief Checks a hop in the given @c AS_PATH .
- * @return @c aspa_hop_result .
- */
-enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
-
-#endif
+#endif /* RTR_ASPA_PRIVATE_H */
 /** @} */

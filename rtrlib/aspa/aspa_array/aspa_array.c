@@ -13,6 +13,8 @@
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/rtr/rtr.h"
 
+// MARK: - Initialization & Deinitialization
+
 enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 {
 	const size_t default_initial_size = 128;
@@ -39,7 +41,7 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 	array->size = 0;
 	array->data = data_field;
 
-	// returning the vector
+	// returning the array
 	*array_ptr = array;
 
 	return ASPA_SUCCESS;
@@ -47,7 +49,7 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 
 void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 {
-	// if the vector is null just return
+	// if the array is null just return
 	if (!array) {
 		return;
 	}
@@ -69,6 +71,8 @@ void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 	// freeing the array itself
 	lrtr_free(array);
 }
+
+// MARK: - Manipulation
 
 static enum aspa_status aspa_array_reallocate(struct aspa_array *array)
 {
@@ -94,9 +98,9 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 	if (index > array->size)
 		return ASPA_ERROR;
 
-	// check if this element will fit into the vector
+	// check if this element will fit into the array
 	if (array->size >= array->capacity) {
-		// increasing the vectors size so the new element fits
+		// increasing the array's size so the new element fits
 		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
 			return ASPA_ERROR;
 		}
@@ -139,9 +143,9 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 
 enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers)
 {
-	// check if this element will fit into the vector
+	// check if this element will fit into the array
 	if (array->size >= array->capacity) {
-		// increasing the vectors' size so the new element fits
+		// increasing the array's size so the new element fits
 		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
 			return ASPA_ERROR;
 		}
@@ -170,31 +174,10 @@ enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record 
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_append_contents(struct aspa_array *array, struct aspa_record *records, size_t count)
-{
-	size_t size = array->size + count;
-	// check if this element will fit into the vector
-	if (size >= array->capacity) {
-		// increasing the vectors size so the new element fits
-
-		struct aspa_record *tmp = lrtr_realloc(array->data, size);
-		if (!tmp) {
-			return ASPA_ERROR;
-		}
-
-		array->data = tmp;
-		array->capacity = size;
-	}
-
-	memcpy(&array->data[array->size], records, count * sizeof(struct aspa_record));
-	array->size += count;
-	return ASPA_SUCCESS;
-}
-
 enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool free_providers)
 {
 	if (index >= array->size || array->size == 0)
-		return ASPA_ERROR;
+		return ASPA_RECORD_NOT_FOUND;
 
 	if (free_providers && array->data[index].provider_asns)
 		lrtr_free(array->data[index].provider_asns);
@@ -225,9 +208,11 @@ inline struct aspa_record *aspa_array_get_record(struct aspa_array *array, size_
 	return &array->data[index];
 }
 
+// MARK: - Retrieval
+
 struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t customer_asn)
 {
-	// if the vector is empty we return an error
+	// if the array is empty we return an error
 	if (array->size == 0 || array->capacity == 0) {
 		return NULL;
 	}
@@ -261,28 +246,4 @@ struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t custome
 
 	// element not found
 	return NULL;
-}
-
-enum aspa_status aspa_array_free_entry(struct aspa_array *array, struct aspa_record *entry)
-{
-	if (array->size == 0 || entry < array->data || entry >= array->data + array->size) {
-		return -1;
-	}
-
-	// number of elements that need to be moved left
-	size_t index = (size_t)(entry - array->data);
-	size_t number_of_elements = array->size - index - 1;
-
-	lrtr_free(entry->provider_asns);
-
-	// if 1 or more elements needs to be copied
-	if (number_of_elements > 0) {
-		memmove(entry, entry + 1, number_of_elements * sizeof(struct aspa_record));
-	}
-
-	// decrementing the size by one
-	array->size -= 1;
-
-	// we dont need to sort here
-	return ASPA_SUCCESS;
 }

@@ -10,7 +10,7 @@
 /**
  * @defgroup mod_aspa_h ASPA validation table
  *
- * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider Authorization  data
+ * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider Authorization data
  * received from an RPKI-RTR cache server.
  *
  * @{
@@ -29,7 +29,11 @@
 
 /**
  * @brief ASPA Record
- * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers
+ * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers.
+ *
+ * @param customer_asn Customer ASN
+ * @param provider_count The number of providers this customer declares.
+ * @param provider_asns An array of provider ASNs.
  */
 struct aspa_record {
 	uint32_t customer_asn;
@@ -37,11 +41,7 @@ struct aspa_record {
 	uint32_t *provider_asns;
 };
 
-/**
- * @brief Computes size of a given ASPA record.
- * @param record The record whose size to compute.
- */
-size_t aspa_size_of_aspa_record(const struct aspa_record *record);
+// MARK: - ASPA Table
 
 struct aspa_table;
 
@@ -57,11 +57,11 @@ enum aspa_operation_type {
 };
 
 /**
- * @brief A function pointer that is called if an record was added to the aspa_table or was removed from the aspa_table.
+ * @brief A function pointer that is called if an record was added to the @p aspa_table or was removed from the @p aspa_table.
  *
- * @param aspa_table which was updated.
- * @param record aspa_record that was modified.
- * @param added True if the record was added, false if the record was removed.
+ * @param aspa_table ASPA table which was updated.
+ * @param record ASPA rrecord that was modified.
+ * @param operation_type The type of this operation.
  */
 typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_record record,
 			       const struct rtr_socket *rtr_socket, const enum aspa_operation_type operation_type);
@@ -102,23 +102,6 @@ enum aspa_status {
 };
 
 /**
- * @brief Validation states returned from  aspa_validate_as_path.
- */
-enum as_path_state {
-	// TODO: docs/naming
-	/** <#...#> */
-	BGP_AS_PATH_STATE_VALID,
-
-	// TODO: docs/naming
-	/** @brief <#...#> */
-	BGP_AS_PATH_STATE_NOT_FOUND,
-
-	// TODO: docs/naming
-	/** @brief <#...#> */
-	BGP_AS_PATH_STATE_INVALID
-};
-
-/**
  * @brief Initializes the aspa_table struct.
  *
  * @param[in] aspa_table aspa_table that will be initialized.
@@ -144,8 +127,13 @@ void aspa_table_free(struct aspa_table *aspa_table, bool notify);
  */
 enum aspa_status aspa_table_src_remove(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket, bool notify);
 
+// MARK: - AS_PATH Verification
+
 enum aspa_direction { ASPA_UPSTREAM, ASPA_DOWNSTREAM };
 
+/**
+ * @brief AS_PATH verification result.
+ */
 enum aspa_verification_result {
 	ASPA_AS_PATH_UNKNOWN,
 	ASPA_AS_PATH_INVALID,
@@ -158,7 +146,7 @@ enum aspa_verification_result {
  * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
  * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
  *
- * @param[in] aspa_table ASPA table to use
+ * @param[in] aspa_table ASPA table to use.
  * @param[in] direction @c AS_PATH direction, as explained in the draft
  * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
  * @param[in] len the length of @p as_path array
@@ -170,42 +158,11 @@ enum aspa_verification_result aspa_verify_as_path(struct aspa_table *aspa_table,
 						  enum aspa_direction direction);
 
 /**
- * @brief Verifies an upstream @c AS_PATH .
- *
- * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
- * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
- *
- * @param[in] aspa_table ASPA table to use
- * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
- * @param[in] len the length of @p as_path array
- * @return @c ASPA_AS_PATH_UNKNOWN if the @c AS_PATH cannot be fully verified
- * @return @c ASPA_AS_PATH_INVALID if @c AS_PATH is invalid
- * @return @c ASPA_AS_PATH_VALID if @c AS_PATH is valid
- */
-enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							   size_t len);
-
-/**
- * @brief Verifies a downstream @c AS_PATH .
- *
- * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
- * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
- *
- * @param[in] aspa_table ASPA table to use
- * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
- * @param[in] len the length of @p as_path array
- * @return @c ASPA_AS_PATH_UNKNOWN if the @c AS_PATH cannot be fully verified
- * @return @c ASPA_AS_PATH_INVALID if @c AS_PATH is invalid
- * @return @c ASPA_AS_PATH_VALID if @c AS_PATH is valid
- */
-enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							     size_t len);
-
-/**
  * @brief Collapses an @c AS_PATH in-place, replacing in-series repetitions with single occurences
- * @return len of collapsed array
+ *
+ * @return Length of the given array.
  */
 size_t aspa_collapse_as_path(uint32_t as_path[], size_t len);
 
-#endif
+#endif /* RTR_ASPA_H */
 /** @} */
