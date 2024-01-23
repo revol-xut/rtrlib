@@ -35,6 +35,14 @@
 #define TEMPORARY_PDU_STORE_INCREMENT_VALUE 100
 #define MAX_SUPPORTED_PDU_TYPE 10
 
+/**
+ * @brief @c ASPA_UPDATE_MECHANISM macro sets the mechanism used in this file to update the ASPA table.
+ * @see aspa/aspa_private.h
+ */
+#define ASPA_IN_PLACE 'P'
+#define ASPA_SWAP_IN 'S'
+#define ASPA_UPDATE_MECHANISM ASPA_IN_PLACE
+
 struct aspa_pdu_list_node {
 	struct pdu_aspa *pdu;
 	struct aspa_pdu_list_node *next;
@@ -1182,7 +1190,9 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 #elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
     struct aspa_update_operation *aspa_failed_operation = NULL;
     struct aspa_update_operation *aspa_operations = NULL;
-#endif
+#else
+#error "Invalid ASPA_UPDATE_MECHANISM value."
+#endif /* ASPA_UPDATE_MECHANISM */
 
 	// add all IPv4 prefix pdu to the pfx_table
 	for (size_t i = 0; i < ipv4_pdu_count; i++) {
@@ -1296,7 +1306,9 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
     aspa_table_update_in_place_cleanup(aspa_operations, aspa_pdu_count);
     aspa_operations = NULL;
     aspa_failed_operation = NULL;
-#endif
+#else
+#error "Invalid ASPA_UPDATE_MECHANISM value."
+#endif /* ASPA_UPDATE_MECHANISM */
 
 	// An update attempted above failed
 	if (!proceed) {

@@ -17,9 +17,9 @@
  * ASPA tables implement aggregated updating using an array of 'add record' and 'remove record' operations --
  * reducing iterations and memory allocations.  E.g., these operations can be derived from a RTR cache response.
  * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use the macro
- * `ASPA_UPDATE_MECHANISM` (must be either`ASPA_SWAP_IN` or `"ASPA_IN_PLACE"`) to configure the update implementation.
- * used. The two implementations must not be used simultaneously. The array of operations is effectively a diff to the table's
- * previous state. This diff can be conveniently used to notify callers about changes once the update is applied.
+ * `ASPA_UPDATE_MECHANISM` in rtr/packets.c to configure which implementation is used during syncing.
+ * used. The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers about
+ * changes once the update is applied.
  *
  * ## Swap-In Update Mechanism
  * The ASPA table's **Swap-In** update mechanism avoids blocking callers who want to
@@ -97,9 +97,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ASPA_IN_PLACE 'P'
-#define ASPA_SWAP_IN 'S'
-#define ASPA_UPDATE_MECHANISM ASPA_IN_PLACE
 #define ASPA_NOTIFY_NO_OPS 1
 
 // MARK: - Verification
@@ -155,7 +152,6 @@ struct aspa_update_operation {
 	bool is_no_op;
 };
 
-#if ASPA_UPDATE_MECHANISM == ASPA_SWAP_IN
 // MARK: - Swap-In Update Mechanism
 /**
  * @brief Computed ASPA update.
@@ -213,7 +209,6 @@ void aspa_table_update_swap_in_apply(struct aspa_update *update);
  */
 void aspa_table_update_swap_in_finish(struct aspa_update *update);
 
-#elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
 // MARK: - In-Place Update Mechanism
 
 /**
@@ -261,9 +256,6 @@ enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, 
  * @param[in] count  Number of operations.
  */
 void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations, size_t count);
-#else
-#error "Invalid ASPA_UPDATE_MECHANISM value."
-#endif /* ASPA_UPDATE_MECHANISM */
 
 #endif /* RTR_ASPA_PRIVATE_H */
 /** @} */

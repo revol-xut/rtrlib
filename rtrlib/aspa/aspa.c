@@ -268,7 +268,6 @@ static int compare_asns(const void *a, const void *b)
 	return *(uint32_t *)a - *(uint32_t *)b;
 }
 
-#if ASPA_UPDATE_MECHANISM == ASPA_SWAP_IN
 // MARK: - Swap-In Update Mechanism
 
 /**
@@ -544,7 +543,6 @@ void aspa_table_update_swap_in_finish(struct aspa_update *update)
 	lrtr_free(update);
 }
 
-#elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
 // MARK: - In-Place Update Mechanism
 
 enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,
@@ -851,6 +849,3 @@ void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations
 
 	lrtr_free(operations);
 }
-#else
-#error "Invalid ASPA_UPDATE_MECHANISM value."
-#endif /* ASPA_UPDATE_MECHANISM */
