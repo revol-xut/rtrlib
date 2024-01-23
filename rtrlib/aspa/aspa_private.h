@@ -18,7 +18,7 @@
  * reducing iterations and memory allocations.  E.g., these operations can be derived from a RTR cache response.
  * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use the macro
  * `ASPA_UPDATE_MECHANISM` in rtr/packets.c to configure which implementation is used during syncing.
- * used. The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers about
+ * The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers about
  * changes once the update is applied.
  *
  * ## Swap-In Update Mechanism
