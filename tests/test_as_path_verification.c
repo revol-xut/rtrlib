@@ -70,9 +70,6 @@ static struct aspa_table *test_create_aspa_table()
 	assert(aspa_table != NULL);
 	aspa_table_init(aspa_table, NULL);
 
-	// { 302, 402, 502, 500, 400, 300 }, 6, ASPA_DOWNSTREAM) == ASPA_AS_PATH_VALID);
-	// { 301, 401, 501, 502, 502, 402, 302 }, 7, ASPA_DOWNSTREAM) == ASPA_AS_PATH_INVALID);
-	// { 302, 402, 502, 500, 400, 300 }, 6, ASPA_DOWNSTREAM) == ASPA_AS_PATH_UNKNOWN);
 	ENTER_ASPA_TABLE_NEW_SOCKET(aspa_table, 
 		RECORD(100, ASNS(200, 201)),
 		RECORD(200, ASNS(300)),
@@ -105,7 +102,7 @@ static struct aspa_table *test_create_aspa_table()
 }
 
 static void test_hopping(struct aspa_table* aspa_table) {
-    // check that provider and not provider holds
+	// check that provider and not provider holds
 	assert(aspa_check_hop(aspa_table, 100, 200) == ASPA_PROVIDER_PLUS);
 	assert(aspa_check_hop(aspa_table, 200, 100) == ASPA_NOT_PROVIDER_PLUS);
 
@@ -126,8 +123,8 @@ static void test_hopping(struct aspa_table* aspa_table) {
 //   - all attested: valid
 
 static void test_upstream(struct aspa_table* aspa_table) {
+	// empty paths are valid
 	assert(aspa_verify_as_path(aspa_table, NULL, 0, ASPA_UPSTREAM) == ASPA_AS_PATH_VALID);
-	// TODO ^ this was invalid before
 
 	// paths of length 1 are valid
 	VERIFY_AS_PATH(ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(100));
