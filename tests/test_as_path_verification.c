@@ -127,73 +127,103 @@ static void test_upstream(struct aspa_table* aspa_table) {
 	assert(aspa_verify_as_path(aspa_table, NULL, 0, ASPA_UPSTREAM) == ASPA_AS_PATH_VALID);
 
 	// paths of length 1 are valid
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(100));
 
 	// valid upstream paths
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(200, 100));
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(300, 200));
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(300, 200, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(200, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(300, 200));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(300, 200, 100));
 
 	// single not-provider hop (nP)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(999, 100));
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(300, 999, 100));
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(999, 999, 100));
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(999, 100, 999));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(999, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(300, 999, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(999, 999, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(999, 100, 999));
 
 	// single unattested hop (nA)
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(999, 500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(999, 500, 400, 300));
 }
 
 static void test_downstream(struct aspa_table* aspa_table) {
 	// paths of length 1 <= N <= 2 are valid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(999));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(998, 999));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(999));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(998, 999));
 
 	// either up- or down-ramp is valid, not both
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(300, 400, 500));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(300, 400, 500));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(500, 400, 300));
 
 	// w/o customer-provider gap
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(300, 400, 500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(300, 400, 500, 400, 300));
 
 	// single not-provider (nP) in between
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(302, 402, 502, 500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(302, 402, 502, 500, 400, 300));
 
 	// two highest-level hops are nP
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(301, 401, 501, 502, 502, 402, 302));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(302, 402, 502, 999, 500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(301, 401, 501, 502, 502, 402, 302));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(302, 402, 502, 999, 500, 400, 300));
 
 	// single nA at highest level is valid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(999, 500, 400, 300));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(300, 400, 500, 999));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(999, 500, 400, 300));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(300, 400, 500, 999));
 
 	// single nP at highest level is valid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(999, 502, 402, 302));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(302, 402, 502, 999));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(999, 502, 402, 302));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(302, 402, 502, 999));
 
 	// the last hop in the down ramp must be valid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(999, 300, 400, 500));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(100, 300, 400, 500));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(999, 300, 400, 500));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(100, 300, 400, 500));
 
 	// the first hop in the up ramp must be valid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(500, 400, 300, 999));
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(500, 400, 300, 100));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(500, 400, 300, 999));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(500, 400, 300, 100));
 
 	// consecutive up-ramps are invalid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(400, 300, 200, 502, 402, 302));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(400, 300, 200, 502, 402, 302));
 
 	// consecutive down-ramps are invalid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(200, 300, 400, 302, 402, 502));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(200, 300, 400, 302, 402, 502));
 
 	// both down- and up-ramp are invalid
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(400, 300, 200, 302, 402, 502));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(400, 300, 200, 302, 402, 502));
 
 	// overlapping customer-provider-relationships
 	// 103 --> 203 <--> 303 <--> 403 <-- 304
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(304, 403, 303, 203, 103));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(304, 403, 303, 203, 103));
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 90, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 90, 40, 70, 80));
 }
 
 /**
@@ -219,7 +249,8 @@ static void test_verify_example_1()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(20, 30, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(20, 30, 40, 70, 80));
 }
 
 
@@ -248,7 +279,8 @@ static void test_verify_example_2()
 		RECORD(90, ASNS(30, 40)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 90, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 90, 40, 70, 80));
 }
 
 
@@ -281,7 +313,8 @@ static void test_verify_example_2b()
 		RECORD(40, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 90, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 90, 40, 70, 80));
 }
 
 
@@ -308,7 +341,8 @@ static void test_verify_example_3a()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 90, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 90, 40, 70, 80));
 }
 
 
@@ -335,7 +369,8 @@ static void test_verify_example_3b()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 90, 100, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 90, 100, 40, 70, 80));
 }
 
 
@@ -366,7 +401,8 @@ static void test_verify_example_3c()
 		RECORD(40, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 90, 100, 40, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 90, 100, 40, 70, 80));
 }
 
 
@@ -397,7 +433,8 @@ static void test_verify_example_3d()
 		RECORD(40, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 40, 100, 90, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 40, 100, 90, 70, 80));
 }
 
 
@@ -428,7 +465,8 @@ static void test_verify_example_3f()
 		RECORD(40, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 40, 100, 90, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 40, 100, 90, 70, 80));
 }
 
 
@@ -450,7 +488,8 @@ static void test_verify_example_4()
 		RECORD(70, ASNS(80)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60, 70, 80));
 }
 
 
@@ -477,7 +516,8 @@ static void test_verify_example_4_fixed()
 		RECORD(30, ASNS(20)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60, 70, 80));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60, 70, 80));
 }
 
 
@@ -502,7 +542,8 @@ static void test_verify_example_5()
 		RECORD(30, ASNS(20)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(20, 30, 40));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(20, 30, 40));
 }
 
 
@@ -541,7 +582,8 @@ static void test_verify_example_6()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120));
 }
 
 
@@ -587,7 +629,8 @@ static void test_verify_example_7()
 		RECORD(140, ASNS(130)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140));
 }
 
 
@@ -608,7 +651,8 @@ static void test_verify_example_8()
 	BUILD_ASPA_TABLE(aspa_table,
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(20));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(20));
 }
 
 
@@ -629,7 +673,8 @@ static void test_verify_example_9()
 	BUILD_ASPA_TABLE(aspa_table,
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID, ASNS(20));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(20));
 }
 
 
@@ -652,7 +697,8 @@ static void test_verify_example_11()
 		RECORD(30, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID, ASNS(20, 30));
+	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
+		ASNS(20, 30));
 }
 
 
@@ -672,7 +718,8 @@ static void test_verify_example_12()
 	BUILD_ASPA_TABLE(aspa_table,
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_UNKNOWN, ASNS(20, 30));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_UNKNOWN,
+		ASNS(20, 30));
 }
 
 
@@ -704,7 +751,8 @@ static void test_verify_example_13()
 		RECORD(20, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60));
 }
 
 
@@ -734,7 +782,8 @@ static void test_verify_example_14()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60));
 }
 
 
@@ -764,7 +813,8 @@ static void test_verify_example_15()
 		RECORD(20, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(20, 30, 40, 50, 60));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(20, 30, 40, 50, 60));
 }
 
 
@@ -790,7 +840,8 @@ static void test_verify_example_16()
 		RECORD(40, ASNS(30)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(10, 20, 30, 40));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(10, 20, 30, 40));
 }
 
 
@@ -819,7 +870,8 @@ static void test_verify_example_17()
 		RECORD(50, ASNS(40)),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(10, 20, 30, 40));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(10, 20, 30, 40));
 }
 
 
@@ -840,7 +892,8 @@ static void test_verify_example_18()
 		RECORD(20, ASNS()),
 	)
 
-	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID, ASNS(30, 20, 40));
+	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
+		ASNS(30, 20, 40));
 }
 
 static void test_single_collapse(uint32_t input[], size_t input_len, uint32_t output[], size_t output_len)
