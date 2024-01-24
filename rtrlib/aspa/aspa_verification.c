@@ -74,6 +74,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	// has index 0.
 	// Doesn't check any hop twice.
 	if (len <= 1)
+        // Trivially VALID AS_PATH
 		return ASPA_AS_PATH_VALID;
 
 	pthread_rwlock_rdlock(&aspa_table->lock);
@@ -85,6 +86,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 		r -= 1;
 
 	if (r == 0) {
+        // Complete customer-provider chain, VALID upstream AS_PATH
 		pthread_rwlock_unlock(&aspa_table->lock);
 		return ASPA_AS_PATH_VALID;
 	}
@@ -92,7 +94,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	bool found_nP_from_right = false;
 
 	/*
-	 * I. Look for nP+ in the right-to-left/upwards direction
+	 * Look for nP+ in the right-to-left/upwards direction
 	 * Check if there's a nP+ hop in the gap from the right (facing left/up).
 	 * a, The next hop right after the up-ramp was already retrieved from the database,
 	 *    so just check if that hop was nP+.
@@ -144,6 +146,7 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 	// has index 0.
 	// Doesn't check any hop twice.
 	if (len <= 2)
+        // Trivially VALID AS_PATH
 		return ASPA_AS_PATH_VALID;
 
 	pthread_rwlock_rdlock(&aspa_table->lock);
