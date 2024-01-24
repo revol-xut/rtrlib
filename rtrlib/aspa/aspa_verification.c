@@ -112,7 +112,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	 *
 	 */
 
-	size_t rr = r - 1;
+	size_t rr = r;
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
@@ -193,11 +193,11 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 	 *
 	 */
 
-	size_t rr = r - 1;
+	size_t rr = r;
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
-		while (rr > l) {
+		while (rr > l + 1) {
 			size_t c = rr;
 			rr--;
 			if (aspa_check_hop(aspa_table, as_path[c], as_path[rr]) == ASPA_NOT_PROVIDER_PLUS) {
