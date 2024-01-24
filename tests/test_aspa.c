@@ -158,6 +158,7 @@ static struct pdu_aspa *append_aspa(uint8_t version, uint8_t flags, uint32_t cus
 
 	if (provider_asns)
 		memcpy(aspa->provider_asns, provider_asns, sizeof(uint32_t) * provider_count);
+
 	data_size += pdu_size;
 
 	return aspa;
@@ -297,18 +298,13 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	assert(array->data);
 
 	for (size_t i = 0; i < record_count; i++) {
-		// printf("expecting %u, %u present.\n", records[i].customer_asn, array->data[i].customer_asn);
 		assert(array->data[i].customer_asn == records[i].customer_asn);
 		assert(array->data[i].provider_count == records[i].provider_count);
 
-		for (size_t k = 0; k < records[i].provider_count; k++) {
-			// printf("expecting prov %u, %u present.\n", array->data[i].provider_asns[k], records[i].provider_asns[k]);
+		for (size_t k = 0; k < records[i].provider_count; k++)
 			assert(array->data[i].provider_asns[k] == records[i].provider_asns[k]);
-		}
 	}
 }
-
-// MARK: - Tests
 
 static void test_regular_announcement(struct rtr_socket *socket)
 {
@@ -846,6 +842,7 @@ static void test_corrupt(struct rtr_socket *socket)
 static void cleanup(struct rtr_socket **socket)
 {
 	printf("cleaning...\n");
+
 	if (data) {
 		lrtr_free(data);
 		data = NULL;
@@ -876,12 +873,14 @@ static struct rtr_socket *create_socket(bool is_resetting)
 
 	struct rtr_socket *socket = lrtr_calloc(1, sizeof(struct rtr_socket));
 	assert(socket);
+
 	socket->is_resetting = is_resetting;
 	socket->version = 2;
 	socket->state = RTR_SYNC;
 	socket->tr_socket = tr_socket;
 
 	struct aspa_table *aspa_table = lrtr_calloc(1, sizeof(struct aspa_table));
+
 	assert(aspa_table);
 	aspa_table_init(aspa_table, aspa_update_callback);
 	socket->aspa_table = aspa_table;
