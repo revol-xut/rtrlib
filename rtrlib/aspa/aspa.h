@@ -10,7 +10,7 @@
 /**
  * @defgroup mod_aspa_h ASPA validation table
  *
- * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider Authorization  data
+ * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider Authorization data
  * received from an RPKI-RTR cache server.
  *
  * @{
@@ -19,8 +19,7 @@
 #ifndef RTR_ASPA_H
 #define RTR_ASPA_H
 
-#include "aspa_array/aspa_array.h"
-
+#include "rtrlib/aspa/aspa_array/aspa_array.h"
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/rtr/rtr.h"
 
@@ -28,11 +27,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-
 /**
  * @brief ASPA Record
- * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers
+ * Customer (Customer Autonomous Systen, CAS) authorizes a set of provider AS numbers.
+ *
+ * @param customer_asn Customer ASN
+ * @param provider_count The number of providers this customer declares.
+ * @param provider_asns An array of provider ASNs.
  */
 struct aspa_record {
 	uint32_t customer_asn;
@@ -40,33 +41,45 @@ struct aspa_record {
 	uint32_t *provider_asns;
 };
 
-/**
- * @brief Computes size of a given ASPA record.
- * @param record The record whose size to compute.
- */
-size_t aspa_size_of_aspa_record(const struct aspa_record *record);
+// MARK: - ASPA Table
 
 struct aspa_table;
 
 /**
- * @brief A function pointer that is called if an record was added to the aspa_table or was removed from the aspa_table.
+ * @brief An enum describing the type of operation the ASPA table should perform using any given ASPA record.
+ */
+enum aspa_operation_type {
+	/** The existing record, identified by its customer ASN, shall be withdrawn from the ASPA table. */
+	ASPA_REMOVE = 0,
+
+	/** The new record, identified by its customer ASN, shall be added to the ASPA table. */
+	ASPA_ADD = 1
+};
+
+/**
+ * @brief A function pointer that is called if an record was added to the @p aspa_table or was removed from the @p aspa_table.
  *
- * @param aspa_table which was updated.
- * @param record aspa_record that was modified.
- * @param added True if the record was added, false if the record was removed.
+ * @param aspa_table ASPA table which was updated.
+ * @param record ASPA rrecord that was modified.
+ * @param operation_type The type of this operation.
  */
 typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_record record,
-			       const struct rtr_socket *rtr_socket, const bool added);
+			       const struct rtr_socket *rtr_socket, const enum aspa_operation_type operation_type);
 
 /**
  * @brief ASPA Table
 
- * @property lock Read-Write lock to prevent data races.
- * @property Update function, called when the dynamic ordered array changes.
- * @property sockets sockets Sockets, each storing a dynamic ordered array
+ * @param lock Read-Write lock to prevent data races.
+ * @param update_lock Read-Write lock to prevent changes made to the table while an update is in progress.
+ * @param Update function, called when the dynamic ordered array changes.
+ * @param sockets sockets Sockets, each storing a dynamic ordered array
+ *
+ * An ASPA table consists of a linked list of a sockets  and ASPA arrays, simplifying removing or replacing records
+ * originating from any given socket.
  */
 struct aspa_table {
 	pthread_rwlock_t lock;
+	pthread_rwlock_t update_lock;
 	aspa_update_fp update_fp;
 	struct aspa_store_node *store;
 };
@@ -86,23 +99,6 @@ enum aspa_status {
 
 	/** aspa_record wasn't found in the aspa_table. */
 	ASPA_RECORD_NOT_FOUND = -3,
-};
-
-/**
- * @brief Validation states returned from  aspa_validate_as_path.
- */
-enum as_path_state {
-	// TODO: docs/naming
-	/** <#...#> */
-	BGP_AS_PATH_STATE_VALID,
-
-	// TODO: docs/naming
-	/** @brief <#...#> */
-	BGP_AS_PATH_STATE_NOT_FOUND,
-
-	// TODO: docs/naming
-	/** @brief <#...#> */
-	BGP_AS_PATH_STATE_INVALID
 };
 
 /**
@@ -131,8 +127,13 @@ void aspa_table_free(struct aspa_table *aspa_table, bool notify);
  */
 enum aspa_status aspa_table_src_remove(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket, bool notify);
 
+// MARK: - AS_PATH Verification
+
 enum aspa_direction { ASPA_UPSTREAM, ASPA_DOWNSTREAM };
 
+/**
+ * @brief AS_PATH verification result.
+ */
 enum aspa_verification_result {
 	ASPA_AS_PATH_UNKNOWN,
 	ASPA_AS_PATH_INVALID,
@@ -145,7 +146,7 @@ enum aspa_verification_result {
  * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
  * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
  *
- * @param[in] aspa_table ASPA table to use
+ * @param[in] aspa_table ASPA table to use.
  * @param[in] direction @c AS_PATH direction, as explained in the draft
  * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
  * @param[in] len the length of @p as_path array
@@ -157,42 +158,11 @@ enum aspa_verification_result aspa_verify_as_path(struct aspa_table *aspa_table,
 						  enum aspa_direction direction);
 
 /**
- * @brief Verifies an upstream @c AS_PATH .
- *
- * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
- * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
- *
- * @param[in] aspa_table ASPA table to use
- * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
- * @param[in] len the length of @p as_path array
- * @return @c ASPA_AS_PATH_UNKNOWN if the @c AS_PATH cannot be fully verified
- * @return @c ASPA_AS_PATH_INVALID if @c AS_PATH is invalid
- * @return @c ASPA_AS_PATH_VALID if @c AS_PATH is valid
- */
-enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							   size_t len);
-
-/**
- * @brief Verifies a downstream @c AS_PATH .
- *
- * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
- * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
- *
- * @param[in] aspa_table ASPA table to use
- * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
- * @param[in] len the length of @p as_path array
- * @return @c ASPA_AS_PATH_UNKNOWN if the @c AS_PATH cannot be fully verified
- * @return @c ASPA_AS_PATH_INVALID if @c AS_PATH is invalid
- * @return @c ASPA_AS_PATH_VALID if @c AS_PATH is valid
- */
-enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_table *aspa_table, uint32_t as_path[],
-							     size_t len);
-
-/**
  * @brief Collapses an @c AS_PATH in-place, replacing in-series repetitions with single occurences
- * @return len of collapsed array
+ *
+ * @return Length of the given array.
  */
 size_t aspa_collapse_as_path(uint32_t as_path[], size_t len);
 
-#endif
+#endif /* RTR_ASPA_H */
 /** @} */

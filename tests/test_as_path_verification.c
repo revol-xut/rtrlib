@@ -69,7 +69,7 @@ static void insert_new_socket_records(struct aspa_table *aspa_table,
 	qsort(records, record_count, sizeof(*records), compare_records);
 
 	for (size_t i = 0; i < record_count; i++) {
-		aspa_array_insert(array, i, records[i]);
+		aspa_array_insert(array, i, records[i], false);
 		printf("%zu: %u\n", i, records[i]->customer_asn);
 	}
 }

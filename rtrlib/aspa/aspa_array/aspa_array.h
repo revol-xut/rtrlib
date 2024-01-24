@@ -19,7 +19,10 @@
 
 /**
  * @brief Struct which is similar in function to std::vector from C++.
- * If the vector is running full a larger chunk of memory is allocated and the data is copied over.
+ * If the vector is running full, a larger chunk of memory is reallocated.
+ *
+ * This structure stores ASPA records in a contiguous chunk of memory,
+ * sorted in ascending order by their customer ASN.
  */
 struct aspa_array {
 	uint32_t size;
@@ -27,58 +30,74 @@ struct aspa_array {
 	struct aspa_record *data;
 };
 
+// MARK: - Initialization & Deinitialization
+
 /**
  * @brief Creates an vector object
- * @param[vector_pointer] the pointer to the newly created pointer will be written to *vector_pointer
- * @result Valid pointer to an aspa_array struct
- * @result Null On error.
+ * @param[in,out] array_ptr Pointer to a variable that will hold a reference to the newly created array.
+ * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
 enum aspa_status aspa_array_create(struct aspa_array **array_ptr);
 
 /**
- * @brief Deletes the given ASPA array
+ * @brief Deletes the given ASPA array.
  * @param array ASPA array which will be deleted
- * @param free_provider_sets A boolean value determining whether each record's provider set should be released.
- * @result @c ASPA_SUCCESS On success.
- * @result @c ASPA_ERROR On error.
+ * @param free_provider_arrays A boolean value determining whether each record's provider array should be deallocated.
  */
-enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_sets);
+void aspa_array_free(struct aspa_array *array, bool free_provider_arrays);
+
+// MARK: - Manipulation
 
 /**
- * @brief Reallocates the vector to increase its size
- * @param[vector] aspa_vector which should get an increase in size
- * @result 0 On success.
- * @result -1 On error.
+ * @brief Inserts a given ASPA record into the array, preserving its order.
+ *
+ * @param array The ASPA array that will hold the new record.
+ * @param index The index at which the new record will be stored.
+ * @param record The new record.
+ * @param copy_providers A boolean value indicating whether the array should copy the record's providers before inserting the record.
+ * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
-enum aspa_status aspa_array_reallocate(struct aspa_array *array);
+enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
+				   bool copy_providers);
 
 /**
- * @brief Will insert the element at the correct place in the list so the ascending order is preserved
- * This function assumes that the data field is large enough to fit one more element
- * This method is intended for internal use please use aspa_array_insert instead.
+ * @brief Appends a given ASPA record to the array.
+ *
+ * @param array The ASPA array that will hold the new record.
+ * @param record The record that will be appended to the array.
+ * @param copy_providers A boolean value indicating whether the array should copy the record's providers before appending the record.
+ * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
-enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record);
+enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers);
 
-enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index);
+/**
+ * @brief Removes the record at the given index from the array.
+ *
+ * @param array The array to remove the record from.
+ * @param index The record's index.
+ * @param free_providers A boolean value determining whether to free the existing record's provider array.
+ * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_RECORD_NOT_FOUND if the record's index doesn't exist,
+ * @c ASPA_ERROR otherwise.
+ */
+enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool free_providers);
 
-enum aspa_status aspa_array_append(struct aspa_array *vector, struct aspa_record *record);
+// MARK: - Retrieval
 
+/**
+ * @brief Returns a reference to the record at the given index.
+ *
+ * @param array ASPA array
+ * @param index The index in the ASPA array.
+ * @return A reference to the `aspa_record` if found, @c NULL otherwise.
+ */
 struct aspa_record *aspa_array_get_record(struct aspa_array *array, size_t index);
-/**
- * @brief deletes the element from the vector
- * @param[vector] aspa_vector from which the element is to be removed
- * @param[entry] pointer to the element which is to be removed
- * @result 0 On success.
- * @result -1 On error.
- */
-enum aspa_status aspa_array_free_entry(struct aspa_array *array, struct aspa_record *entry);
 
 /**
- * @brief returns the index in the vector for a given customer as number (CAS)
- * @param[vector] aspa_vector in which the algorithm will search
- * @param[custom_as] value for which will be searched
- * @result pointer to the record on success
- * @result NULL On error or if the element coulnd't be located
+ * @brief Searches the given ASPA array for a record matching its customer ASN.
+ *
+ * @param array The array to search.
+ * @param customer_asn Customer ASN
+ * @return A reference to the `aspa_record` if found, @c NULL otherwise.
  */
 struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t customer_asn);
 

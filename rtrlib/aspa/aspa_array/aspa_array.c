@@ -13,13 +13,14 @@
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/rtr/rtr.h"
 
+// MARK: - Initialization & Deinitialization
+
 enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 {
 	const size_t default_initial_size = 128;
 
 	// allocation the chunk of memory of the provider as numbers
-	struct aspa_record *data_field =
-		(struct aspa_record *)lrtr_malloc(sizeof(struct aspa_record) * default_initial_size);
+	struct aspa_record *data_field = lrtr_malloc(sizeof(struct aspa_record) * default_initial_size);
 
 	// malloc failed so returning an error
 	if (!data_field) {
@@ -27,10 +28,11 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 	}
 
 	// allocating the aspa_record itself
-	struct aspa_array *array = (struct aspa_array *)lrtr_malloc(sizeof(struct aspa_array));
+	struct aspa_array *array = lrtr_malloc(sizeof(struct aspa_array));
 
 	// malloc for aspa_record failed hence we return an error
 	if (!array) {
+		lrtr_free(data_field);
 		return ASPA_ERROR;
 	}
 
@@ -39,24 +41,21 @@ enum aspa_status aspa_array_create(struct aspa_array **array_ptr)
 	array->size = 0;
 	array->data = data_field;
 
-	// returning the vector
+	// returning the array
 	*array_ptr = array;
 
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_sets)
+void aspa_array_free(struct aspa_array *array, bool free_provider_arrays)
 {
-	// if the vector is null just return
+	// if the array is null just return
 	if (!array) {
-		return ASPA_ERROR;
+		return;
 	}
 
 	if (array->data) {
-		// freeing the data
-		lrtr_free(array->data);
-
-		if (free_provider_sets) {
+		if (free_provider_arrays) {
 			for (size_t i = 0; i < array->size; i++) {
 				if (array->data[i].provider_asns) {
 					lrtr_free(array->data[i].provider_asns);
@@ -64,51 +63,61 @@ enum aspa_status aspa_array_free(struct aspa_array *array, bool free_provider_se
 				}
 			}
 		}
+
+		// freeing the data
+		lrtr_free(array->data);
 	}
 
 	// freeing the array itself
 	lrtr_free(array);
-
-	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_reallocate(struct aspa_array *array)
+// MARK: - Manipulation
+
+static enum aspa_status aspa_array_reallocate(struct aspa_array *array)
 {
 	// the factor by how much the capacity will increase: new_capacity = old_capacity * SIZE_INCREASE_EXPONENTIAL
 	const size_t SIZE_INCREASE_EXPONENTIAL = 2;
 
 	// allocation the new chunk of memory
-	struct aspa_record *new_data_field = (struct aspa_record *)lrtr_malloc(
-		sizeof(struct aspa_record) * array->capacity * SIZE_INCREASE_EXPONENTIAL);
+	struct aspa_record *tmp =
+		lrtr_realloc(array->data, sizeof(struct aspa_record) * array->capacity * SIZE_INCREASE_EXPONENTIAL);
 
 	// malloc failed so returning an error
-	if (new_data_field == NULL) {
+	if (!tmp)
 		return ASPA_ERROR;
-	}
 
-	// copying the data from the old location to the new one
-	memcpy(new_data_field, array->data, array->capacity * sizeof(struct aspa_record));
-
-	// deleting the old vector
-	lrtr_free(array->data);
-
-	// assigning the new array to the vector and incrementing the capacity
-	array->data = new_data_field;
+	array->data = tmp;
 	array->capacity *= SIZE_INCREASE_EXPONENTIAL;
-
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record)
+enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
+				   bool copy_providers)
 {
 	if (index > array->size)
 		return ASPA_ERROR;
 
-	// check if this element will fit into the vector
+	// check if this element will fit into the array
 	if (array->size >= array->capacity) {
-		// increasing the vectors size so the new element fits
+		// increasing the array's size so the new element fits
 		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
 			return ASPA_ERROR;
+		}
+	}
+
+	uint32_t *provider_asns = NULL;
+
+	if (record->provider_count > 0) {
+		if (copy_providers) {
+			size_t provider_size = record->provider_count * sizeof(uint32_t);
+			provider_asns = lrtr_malloc(provider_size);
+			if (!provider_asns) {
+				return ASPA_ERROR;
+			}
+			memcpy(provider_asns, record->provider_asns, provider_size);
+		} else {
+			provider_asns = record->provider_asns;
 		}
 	}
 
@@ -128,13 +137,50 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 
 	array->size += 1;
 	array->data[index] = *record;
+	array->data[index].provider_asns = provider_asns;
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index)
+enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers)
+{
+	// check if this element will fit into the array
+	if (array->size >= array->capacity) {
+		// increasing the array's size so the new element fits
+		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
+			return ASPA_ERROR;
+		}
+	}
+
+	uint32_t *provider_asns = NULL;
+
+	if (record->provider_count > 0) {
+		if (copy_providers) {
+			size_t provider_size = record->provider_count * sizeof(uint32_t);
+			provider_asns = lrtr_malloc(provider_size);
+			if (!provider_asns) {
+				return ASPA_ERROR;
+			}
+			memcpy(provider_asns, record->provider_asns, provider_size);
+		} else {
+			provider_asns = record->provider_asns;
+		}
+	}
+
+	// append the record at the end
+	array->data[array->size] = *record;
+	array->data[array->size].provider_asns = provider_asns;
+	array->size += 1;
+
+	return ASPA_SUCCESS;
+}
+
+enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool free_providers)
 {
 	if (index >= array->size || array->size == 0)
-		return ASPA_ERROR;
+		return ASPA_RECORD_NOT_FOUND;
+
+	if (free_providers && array->data[index].provider_asns)
+		lrtr_free(array->data[index].provider_asns);
 
 	// No need to move if last element
 	if (index < array->size - 1) {
@@ -162,26 +208,11 @@ inline struct aspa_record *aspa_array_get_record(struct aspa_array *array, size_
 	return &array->data[index];
 }
 
-enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record)
-{
-	// check if this element will fit into the vector
-	if (array->size >= array->capacity) {
-		// increasing the vectors size so the new element fits
-		if (aspa_array_reallocate(array) != ASPA_SUCCESS) {
-			return ASPA_ERROR;
-		}
-	}
-
-	// append the record at the end
-	array->data[array->size] = *record;
-	array->size += 1;
-
-	return ASPA_SUCCESS;
-}
+// MARK: - Retrieval
 
 struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t customer_asn)
 {
-	// if the vector is empty we return an error
+	// if the array is empty we return an error
 	if (array->size == 0 || array->capacity == 0) {
 		return NULL;
 	}
@@ -200,11 +231,11 @@ struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t custome
 		if (center_value == customer_asn) {
 			return &array->data[center];
 
-		// value should be on the right side
+			// value should be on the right side
 		} else if (center_value < customer_asn) {
 			left = center + 1;
 
-		// value should be on the left side
+			// value should be on the left side
 		} else if (center == 0) {
 			// value cannot be left of index 0
 			return NULL;
@@ -215,28 +246,4 @@ struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t custome
 
 	// element not found
 	return NULL;
-}
-
-enum aspa_status aspa_array_free_entry(struct aspa_array *array, struct aspa_record *entry)
-{
-	if (array->size == 0 || entry < array->data || entry >= array->data + array->size) {
-		return -1;
-	}
-
-	// number of elements that need to be moved left
-	size_t index = (size_t)(entry - array->data);
-	size_t number_of_elements = array->size - index - 1;
-
-	lrtr_free(entry->provider_asns);
-
-	// if 1 or more elements needs to be copied
-	if (number_of_elements > 0) {
-		memmove(entry, entry + 1, number_of_elements * sizeof(struct aspa_record));
-	}
-
-	// decrementing the size by one
-	array->size -= 1;
-
-	// we dont need to sort here
-	return ASPA_SUCCESS;
 }
