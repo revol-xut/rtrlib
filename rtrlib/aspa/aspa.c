@@ -349,7 +349,7 @@ static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rt
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
 			// These form a no-op.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
-#ifdef ASPA_NOTIFY_NO_OPS
+#if ASPA_NOTIFY_NO_OPS
 				// Complete record's providers for clients
 				next->record = current->record;
 #endif
@@ -529,7 +529,7 @@ static void aspa_table_update_swap_in_consume(struct aspa_update **update_pointe
 			// so we don't need to rely on first notifying clients about all records
 			// in the old_array being removed and then every record in the new_array
 			// being added again.
-#ifdef ASPA_NOTIFY_NO_OPS
+#if ASPA_NOTIFY_NO_OPS
 			aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket, op->type);
 #else
 			if (!op->is_no_op)
@@ -675,7 +675,7 @@ enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struc
 
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
-#ifdef ASPA_NOTIFY_NO_OPS
+#if ASPA_NOTIFY_NO_OPS
 				// If it's a remove operation, we insert a reference to the removed record's providers.
 				next->record = current->record;
 				aspa_table_notify_clients(aspa_table, &current->record, rtr_socket, current->type);
@@ -783,7 +783,7 @@ static enum aspa_status aspa_table_update_in_place_undo_internal(struct aspa_tab
 
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
-#ifdef ASPA_NOTIFY_NO_OPS
+#if ASPA_NOTIFY_NO_OPS
 				// If it's a remove operation, we insert a reference to the removed record's providers.
 				next->record = current->record;
 				aspa_table_notify_clients(aspa_table, &next->record, rtr_socket, ASPA_ADD);

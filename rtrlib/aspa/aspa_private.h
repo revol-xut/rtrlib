@@ -68,7 +68,7 @@
  *     The caller attempts to remove a record twice or more (`ASPA_RECORD_NOT_FOUND`).
  *   5. **Complementary add/remove**:
  *     The caller attempts to first add a record and then wants to remove the same record. This is equivalent to a
- *     no-op. `ASPA_NOTIFY_NO_OPS` (either defined or not) determines if clients are notified about these no-ops.
+ *     no-op. `ASPA_NOTIFY_NO_OPS` (`1` or `0`) determines if clients are notified about these no-ops.
  *
  * ## Implementation Details
  * Both update mechanism implementations tackle the beforementioned cases by first sorting the array of 'add' and
@@ -97,7 +97,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define ASPA_NOTIFY_NO_OPS 1
+#define ASPA_NOTIFY_NO_OPS 0
 
 // MARK: - Verification
 
