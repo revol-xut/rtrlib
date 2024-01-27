@@ -540,7 +540,8 @@ static void update_spki(struct spki_table *s __attribute__((unused)), const stru
 	pthread_mutex_unlock(&stdout_mutex);
 }
 
-static void update_aspa(struct aspa_table *s __attribute__((unused)), const struct aspa_record record, const struct rtr_socket *rtr_sockt, const enum aspa_operation_type operation_type)
+static void update_aspa(struct aspa_table *s __attribute__((unused)), const struct aspa_record record,
+			const struct rtr_socket *rtr_sockt, const enum aspa_operation_type operation_type)
 {
 	const struct socket_config *config = (const struct socket_config *)rtr_sockt;
 
@@ -548,7 +549,7 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 		return;
 
 	pthread_mutex_lock(&stdout_mutex);
-	
+
 	printf("HOST:  %s:%s\n", config->host, config->port);
 
 	char c;
@@ -560,21 +561,21 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 	case ASPA_REMOVE:
 		c = '-';
 		break;
-	default: break;
+	default:
+		break;
 	}
 
-	printf("%c ASPA ", c);
-	printf("%u => [ ", record.customer_asn);
+	printf("%c ASPA %u => [ ", c, record.customer_asn);
 
 	size_t i;
 	size_t count = record.provider_count;
-		
+
 	for (i = 0; i < count; i++) {
 		printf("%u", record.provider_asns[i]);
 		if (i < count - 1)
 			printf(", ");
 	}
-	
+
 	printf(" ]\n");
 
 	pthread_mutex_unlock(&stdout_mutex);
@@ -597,7 +598,7 @@ static void parse_global_opts(int argc, char **argv)
 			activate_pfx_update_cb = true;
 			print_all_pfx_updates = true;
 			break;
-				
+
 		case 'a':
 			activate_aspa_update_cb = true;
 			print_all_aspa_updates = true;
@@ -656,7 +657,7 @@ static void parse_socket_opts(int argc, char **argv, struct socket_config *confi
 			activate_pfx_update_cb = true;
 			config->print_pfx_updates = true;
 			break;
-				
+
 		case 'a':
 			activate_aspa_update_cb = true;
 			config->print_aspa_updates = true;
@@ -961,7 +962,8 @@ int main(int argc, char **argv)
 	pfx_update_fp pfx_update_fp = activate_pfx_update_cb ? update_cb : NULL;
 	aspa_update_fp aspa_update_fp = activate_aspa_update_cb ? update_aspa : NULL;
 
-	int ret = rtr_mgr_init(&conf, groups, 1, 30, 600, 600, pfx_update_fp, spki_update_fp, aspa_update_fp, status_fp, NULL);
+	int ret = rtr_mgr_init(&conf, groups, 1, 30, 600, 600, pfx_update_fp, spki_update_fp, aspa_update_fp, status_fp,
+			       NULL);
 
 	if (ret == RTR_ERROR)
 		fprintf(stderr, "Error in rtr_mgr_init!\n");
