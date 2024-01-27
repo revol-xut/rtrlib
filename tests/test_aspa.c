@@ -236,6 +236,7 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 		c = '-';
 		break;
 	default:
+		c = '?';
 		break;
 	}
 
