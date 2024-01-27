@@ -10,8 +10,9 @@
 /**
  * @defgroup mod_aspa_h ASPA validation table
  *
- * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider Authorization data
- * received from an RPKI-RTR cache server.
+ * @brief The aspa_table is an abstract data structure to organize the validated
+ * Autonomous System Provider Authorization data received from an RPKI-RTR
+ * cache server.
  *
  * @{
  */
@@ -57,7 +58,8 @@ enum aspa_operation_type {
 };
 
 /**
- * @brief A function pointer that is called if an record was added to the @p aspa_table or was removed from the @p aspa_table.
+ * @brief A function pointer that is called if an record was added to the @p aspa_table
+ * or was removed from the @p aspa_table.
  *
  * @param aspa_table ASPA table which was updated.
  * @param record ASPA rrecord that was modified.

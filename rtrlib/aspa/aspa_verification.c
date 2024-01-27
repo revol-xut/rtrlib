@@ -22,7 +22,8 @@ static void *binary_search_asns(const uint32_t cas, uint32_t *array, size_t len)
 	int val;
 	uint32_t *pivot, *base = array;
 
-	mid = top = len;
+	mid = len;
+	top = len;
 
 	while (mid) {
 		mid = top / 2;
@@ -30,12 +31,12 @@ static void *binary_search_asns(const uint32_t cas, uint32_t *array, size_t len)
 
 		val = cas - *pivot;
 
-		if (val == 0) {
+		if (val == 0)
 			return pivot;
-		}
-		if (val >= 0) {
+
+		if (val >= 0)
 			base = pivot;
-		}
+
 		top -= mid;
 	}
 	return NULL;
@@ -45,7 +46,7 @@ enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t cust
 {
 	bool customer_found = false;
 
-	for (struct aspa_store_node *node = aspa_table->store; node != NULL; node = node->next) {
+	for (struct aspa_store_node *node = aspa_table->store; !!node; node = node->next) {
 		struct aspa_record *aspa_record = aspa_array_search(node->aspa_array, customer_asn);
 
 		if (!aspa_record)
@@ -82,6 +83,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	// Find apex of up-ramp
 	size_t r = len - 1;
 	enum aspa_hop_result last_hop_right;
+
 	while (r > 0 && (last_hop_right = aspa_check_hop(aspa_table, as_path[r], as_path[r - 1])) == ASPA_PROVIDER_PLUS)
 		r -= 1;
 
@@ -115,11 +117,13 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	 */
 
 	size_t rr = r;
+
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
 		while (rr > 0) {
 			size_t c = rr;
+
 			rr--;
 			if (aspa_check_hop(aspa_table, as_path[c], as_path[rr]) == ASPA_NOT_PROVIDER_PLUS) {
 				found_nP_from_right = true;
@@ -154,6 +158,7 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 	// Find apex of up-ramp
 	size_t r = len - 1;
 	enum aspa_hop_result last_hop_right;
+
 	while (r > 0 && (last_hop_right = aspa_check_hop(aspa_table, as_path[r], as_path[r - 1])) == ASPA_PROVIDER_PLUS)
 		r--;
 
@@ -197,11 +202,13 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 	 */
 
 	size_t rr = r;
+
 	if (last_hop_right == ASPA_NOT_PROVIDER_PLUS) {
 		found_nP_from_right = true;
 	} else {
 		while (rr > l + 1) {
 			size_t c = rr;
+
 			rr--;
 			if (aspa_check_hop(aspa_table, as_path[c], as_path[rr]) == ASPA_NOT_PROVIDER_PLUS) {
 				found_nP_from_right = true;
@@ -231,11 +238,13 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 		 *
 		 */
 		size_t ll = l + 1;
+
 		if (last_hop_left == ASPA_NOT_PROVIDER_PLUS) {
 			found_nP_from_left = true;
 		} else {
 			while (ll < rr) {
 				size_t c = ll;
+
 				ll++;
 				if (aspa_check_hop(aspa_table, as_path[c], as_path[ll]) == ASPA_NOT_PROVIDER_PLUS) {
 					found_nP_from_left = true;

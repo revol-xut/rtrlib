@@ -1,19 +1,19 @@
 /*
-* This file is part of RTRlib.
-*
-* This file is subject to the terms and conditions of the MIT license.
-* See the file LICENSE in the top level directory for more details.
-*
-* Website; http://rtrlib.realmv6.org/
-*/
+ * This file is part of RTRlib.
+ *
+ * This file is subject to the terms and conditions of the MIT license.
+ * See the file LICENSE in the top level directory for more details.
+ *
+ * Website; http://rtrlib.realmv6.org/
+ */
 
 #include "rtrlib/aspa/aspa_private.h"
-#include "rtrlib/pfx/pfx_private.h"
-#include "rtrlib/spki/hashtable/ht-spkitable_private.h"
 #include "rtrlib/lib/alloc_utils_private.h"
 #include "rtrlib/lib/convert_byte_order_private.h"
+#include "rtrlib/pfx/pfx_private.h"
 #include "rtrlib/rtr/packets_private.h"
 #include "rtrlib/rtr/rtr_pdus.h"
+#include "rtrlib/spki/hashtable/ht-spkitable_private.h"
 #include "rtrlib/transport/transport.h"
 
 #include <assert.h>
@@ -39,70 +39,62 @@ struct update_callback {
 #define BYTES16(X) lrtr_convert_short(TO_HOST_HOST_BYTE_ORDER, X)
 #define BYTES32(X) lrtr_convert_long(TO_HOST_HOST_BYTE_ORDER, X)
 
-#define ASNS(...) (uint32_t []) { __VA_ARGS__ }
+#define ASNS(...) ((uint32_t[]){__VA_ARGS__})
 
-#define APPEND_ASPA(version, flag, cas, providers) \
-	append_aspa(version, flag, cas, \
-		sizeof(providers) == 0 ? NULL : providers, \
-		(size_t)(sizeof(providers) / sizeof(uint32_t)) \
-	);
+#define APPEND_ASPA(version, flag, cas, providers)                                 \
+	append_aspa(version, flag, cas, sizeof(providers) == 0 ? NULL : providers, \
+		    (size_t)(sizeof(providers) / sizeof(uint32_t)))
 
-#define RECORD(cas, providers) ((struct aspa_record) { \
-	.customer_asn = cas, \
-	.provider_count = (size_t)(sizeof(providers) / sizeof(uint32_t)), \
-	.provider_asns = sizeof(providers) == 0 ? NULL : providers \
-})
+#define RECORD(cas, providers)                                                                  \
+	((struct aspa_record){.customer_asn = cas,                                              \
+			      .provider_count = (size_t)(sizeof(providers) / sizeof(uint32_t)), \
+			      .provider_asns = sizeof(providers) == 0 ? NULL : providers})
 
-#define _CAT_(a, b) a ## b
+#define _CAT_(a, b) a##b
 #define _CAT(a, b) _CAT_(a, b)
 #define _LINEVAR(V) _CAT(V, __LINE__)
 
-#define ASSERT_TABLE(socket, ...) \
-	struct aspa_record _LINEVAR(_records)[] = { __VA_ARGS__ }; \
-	assert_table(socket, _LINEVAR(_records), \
-		(size_t)(sizeof(_LINEVAR(_records)) / sizeof(struct aspa_record)) \
-	)
+#define ASSERT_TABLE(socket, ...)                                \
+	struct aspa_record _LINEVAR(_records)[] = {__VA_ARGS__}; \
+	assert_table(socket, _LINEVAR(_records), (size_t)(sizeof(_LINEVAR(_records)) / sizeof(struct aspa_record)))
 
-#define ASSERT_EMPTY_TABLE(socket, ...) \
-	assert_table(socket, NULL, 0)
+#define ASSERT_EMPTY_TABLE(socket, ...) assert_table(socket, NULL, 0)
 
-#define ADDED(rec) (struct update_callback) { \
-	.source = NULL, .record = rec, .type = ASPA_ADD \
-}
+#define ADDED(rec) ((struct update_callback){.source = NULL, .record = rec, .type = ASPA_ADD})
 
-#define ADDED_TO(table, rec) (struct update_callback) { \
-	.source = table, .record = rec, .type = ASPA_ADD \
-}
+#define ADDED_TO(table, rec) ((struct update_callback){.source = table, .record = rec, .type = ASPA_ADD})
 
-#define REMOVED(rec) (struct update_callback) { \
-	.source = NULL, .record = rec, .type = ASPA_REMOVE \
-}
+#define REMOVED(rec) ((struct update_callback){.source = NULL, .record = rec, .type = ASPA_REMOVE})
 
-#define REMOVED_FROM(table, rec) (struct update_callback) { \
-	.source = table, .record = rec, .type = ASPA_REMOVE \
-}
+#define REMOVED_FROM(table, rec) ((struct update_callback){.source = table, .record = rec, .type = ASPA_REMOVE})
 
-#define EXPECT_UPDATE_CALLBACKS(...) \
-	struct update_callback _LINEVAR(_callbacks)[] = { __VA_ARGS__ }; \
-	expect_update_callbacks(_LINEVAR(_callbacks), \
-		(size_t)(sizeof(_LINEVAR(_callbacks)) / sizeof(struct update_callback)) \
-	)
+#define EXPECT_UPDATE_CALLBACKS(...)                                   \
+	struct update_callback _LINEVAR(_callbacks)[] = {__VA_ARGS__}; \
+	expect_update_callbacks(_LINEVAR(_callbacks),                  \
+				(size_t)(sizeof(_LINEVAR(_callbacks)) / sizeof(struct update_callback)))
 
-static int custom_send(const struct tr_socket *socket __attribute__((unused)), const void *pdu, const size_t len, const time_t timeout __attribute__((unused)))
+#define ASPA_ANNOUNCE 1
+#define ASPA_WITHDRAW 0
+
+static int custom_send(const struct tr_socket *socket __attribute__((unused)), const void *pdu, const size_t len,
+		       const time_t timeout __attribute__((unused)))
 {
 	const struct pdu_error *err = pdu;
+
 	if (err->type == 10) {
 		uint32_t *errlen = (uint32_t *)((char *)err->rest + err->len_enc_pdu);
-		if ((char *)errlen < (char *)err + BYTES32(err->len)) {
+
+		if ((char *)errlen < (char *)err + BYTES32(err->len))
 			printf("err msg: %.*s\n", *errlen, (char *)(errlen + 1));
-		}
 	}
 	return len;
 }
 
-static int custom_recv(const struct tr_socket *socket __attribute__((unused)), const void *buf, const size_t len, const time_t timeout __attribute__((unused)))
+static int custom_recv(const struct tr_socket *socket __attribute__((unused)), const void *buf, const size_t len,
+		       const time_t timeout __attribute__((unused)))
 {
 	size_t rlen = len;
+
 	if (data_index + rlen > data_size)
 		rlen = data_size - data_index;
 
@@ -113,7 +105,7 @@ static int custom_recv(const struct tr_socket *socket __attribute__((unused)), c
 
 static struct pdu_cache_response *begin_cache_response(uint8_t version, uint16_t session_id)
 {
-	if (data == NULL)
+	if (!data)
 		data = lrtr_malloc(sizeof(struct pdu_cache_response));
 	else
 		data = lrtr_realloc(data, data_size + sizeof(struct pdu_cache_response));
@@ -121,6 +113,7 @@ static struct pdu_cache_response *begin_cache_response(uint8_t version, uint16_t
 	assert(data);
 
 	struct pdu_cache_response *cache_response = (struct pdu_cache_response *)(data + data_size);
+
 	cache_response->ver = version;
 	cache_response->type = CACHE_RESPONSE;
 	cache_response->session_id = BYTES16(session_id);
@@ -131,11 +124,8 @@ static struct pdu_cache_response *begin_cache_response(uint8_t version, uint16_t
 	return cache_response;
 }
 
-static uint8_t ASPA_ANNOUNCE = 1;
-static uint8_t ASPA_WITHDRAW = 0;
-
 static struct pdu_aspa *append_aspa(uint8_t version, uint8_t flags, uint32_t customer_asn, uint32_t provider_asns[],
-					size_t provider_count)
+				    size_t provider_count)
 {
 	size_t pdu_size = sizeof(struct pdu_aspa) + sizeof(uint32_t) * provider_count;
 
@@ -143,6 +133,7 @@ static struct pdu_aspa *append_aspa(uint8_t version, uint8_t flags, uint32_t cus
 	assert(data);
 
 	struct pdu_aspa *aspa = (struct pdu_aspa *)(data + data_size);
+
 	aspa->ver = version;
 	aspa->type = ASPA;
 	aspa->zero = 0;
@@ -152,9 +143,8 @@ static struct pdu_aspa *append_aspa(uint8_t version, uint8_t flags, uint32_t cus
 	aspa->provider_count = BYTES16((uint16_t)provider_count);
 	aspa->customer_asn = BYTES32(customer_asn);
 
-	for (size_t i = 0; i < provider_count; i++) {
+	for (size_t i = 0; i < provider_count; i++)
 		provider_asns[i] = BYTES32(provider_asns[i]);
-	}
 
 	if (provider_asns)
 		memcpy(aspa->provider_asns, provider_asns, sizeof(uint32_t) * provider_count);
@@ -170,6 +160,7 @@ static struct pdu_end_of_data_v1_v2 *end_cache_response(uint8_t version, uint16_
 	assert(data);
 
 	struct pdu_end_of_data_v1_v2 *eod = (struct pdu_end_of_data_v1_v2 *)(data + data_size);
+
 	eod->ver = version;
 	eod->type = EOD;
 	eod->session_id = BYTES16(session_id);
@@ -184,7 +175,7 @@ static struct pdu_end_of_data_v1_v2 *end_cache_response(uint8_t version, uint16_
 	return eod;
 }
 
-static void clear_expected_callbacks()
+static void clear_expected_callbacks(void)
 {
 	expected_callbacks = NULL;
 	callback_index = 0;
@@ -209,16 +200,21 @@ static void expect_update_callbacks(struct update_callback callbacks[], size_t c
 static char operation_type_debug_description(const enum aspa_operation_type operation_type)
 {
 	switch (operation_type) {
-		case ASPA_ADD: return '+';
-		case ASPA_REMOVE: return '-';
-		default: return '?';
+	case ASPA_ADD:
+		return '+';
+	case ASPA_REMOVE:
+		return '-';
+	default:
+		return '?';
 	}
 }
 
-static void aspa_update_callback(struct aspa_table *s, const struct aspa_record record, const struct rtr_socket *rtr_sockt __attribute__((unused)), const enum aspa_operation_type operation_type)
+static void aspa_update_callback(struct aspa_table *s, const struct aspa_record record,
+				 const struct rtr_socket *rtr_sockt __attribute__((unused)),
+				 const enum aspa_operation_type operation_type)
 {
 	if (callback_count > 0 && callback_index < callback_count) {
-		assert(expected_callbacks != NULL);
+		assert(expected_callbacks);
 
 		if (expected_callbacks[callback_index].source) {
 			if (expected_callbacks[callback_index].source != s)
@@ -227,25 +223,12 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 			assert(expected_callbacks[callback_index].source == s);
 		}
 
-		/*
-		printf(
-			"expecting update callback [%c %u => %zu ASNs], [%c %u => %zu ASNs] present.\n",
-			operation_type_debug_description(expected_callbacks[callback_index].type),
-			expected_callbacks[callback_index].record.customer_asn,
-			expected_callbacks[callback_index].record.provider_count,
-			operation_type_debug_description(operation_type),
-			record.customer_asn,
-			record.provider_count
-		);
-		*/
-
 		assert(expected_callbacks[callback_index].record.customer_asn == record.customer_asn);
 		assert(expected_callbacks[callback_index].type == operation_type);
 		assert(expected_callbacks[callback_index].record.provider_count == record.provider_count);
 
-		for (size_t k = 0; k < record.provider_count; k++) {
+		for (size_t k = 0; k < record.provider_count; k++)
 			assert(expected_callbacks[callback_index].record.provider_asns[k] == record.provider_asns[k]);
-		}
 
 		callback_index += 1;
 	}
@@ -259,7 +242,8 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 	case ASPA_REMOVE:
 		c = '-';
 		break;
-	default: break;
+	default:
+		break;
 	}
 
 	printf("%c ASPA ", c);
@@ -287,7 +271,8 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	assert(socket->aspa_table->store->next == NULL);
 
 	struct aspa_array *array = socket->aspa_table->store->aspa_array;
-	if(array->size != record_count)
+
+	if (array->size != record_count)
 		printf("error!");
 	assert(array->size == record_count);
 
@@ -306,6 +291,7 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	}
 }
 
+// clang-format off
 static void test_regular_announcement(struct rtr_socket *socket)
 {
 	// Test: regular announcement
@@ -595,6 +581,7 @@ static void test_regular_swap(struct rtr_socket *socket)
 
 	struct aspa_table *src_table = socket->aspa_table;
 	struct aspa_table *dst_table = lrtr_calloc(1, sizeof(struct aspa_table));
+
 	assert(dst_table);
 	aspa_table_init(dst_table, aspa_update_callback);
 	socket->aspa_table = dst_table;
@@ -796,14 +783,14 @@ static void test_long(struct rtr_socket *socket)
 		struct aspa_record records[i+2];
 
 		for (int j = i+1; j <= 2*i+2; j++) {
-			for (int k = 0; k < 4; k++) {
+			for (int k = 0; k < 4; k++)
 				provider_asns[4*j+k] = j+k+1;
-			}
+
 			records[j-i-1] =
-				((struct aspa_record) { \
-					.customer_asn = j, \
-					.provider_count = 4, \
-					.provider_asns = &provider_asns[4*j] \
+				((struct aspa_record) {
+					.customer_asn = j,
+					.provider_count = 4,
+					.provider_asns = &provider_asns[4*j]
 				});
 		}
 		assert_table(socket, records, i+2);
@@ -839,6 +826,8 @@ static void test_corrupt(struct rtr_socket *socket)
 	);
 }
 
+// clang-format off
+
 static void cleanup(struct rtr_socket **socket)
 {
 	printf("cleaning...\n");
@@ -868,12 +857,13 @@ static void cleanup(struct rtr_socket **socket)
 static struct rtr_socket *create_socket(bool is_resetting)
 {
 	struct tr_socket *tr_socket = lrtr_calloc(1, sizeof(struct tr_socket));
-	tr_socket->recv_fp = (tr_recv_fp)&custom_recv;
-	tr_socket->send_fp = (tr_send_fp)&custom_send;
+
+	tr_socket->recv_fp = (tr_recv_fp) &custom_recv;
+	tr_socket->send_fp = (tr_send_fp) &custom_send;
 
 	struct rtr_socket *socket = lrtr_calloc(1, sizeof(struct rtr_socket));
-	assert(socket);
 
+	assert(socket);
 	socket->is_resetting = is_resetting;
 	socket->version = 2;
 	socket->state = RTR_SYNC;
@@ -886,10 +876,12 @@ static struct rtr_socket *create_socket(bool is_resetting)
 	socket->aspa_table = aspa_table;
 
 	struct spki_table *spki_table = lrtr_malloc(sizeof(struct spki_table));
+
 	spki_table_init(spki_table, NULL);
 	socket->spki_table = spki_table;
 
 	struct pfx_table *pfx_table = lrtr_malloc(sizeof(struct pfx_table));
+
 	pfx_table_init(pfx_table, NULL);
 	socket->pfx_table = pfx_table;
 
@@ -991,7 +983,7 @@ static void run_tests(bool is_resetting)
 	cleanup(&socket);
 }
 
-int main()
+int main(void)
 {
 	run_tests(false);
 

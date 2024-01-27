@@ -18,39 +18,43 @@
  * reducing iterations and memory allocations.  E.g., these operations can be derived from a RTR cache response.
  * Currently, two distinct update mechanisms are supported: **Swap-In** and **In-Place** updates. Use the macro
  * `ASPA_UPDATE_MECHANISM` in rtr/packets.c to configure which implementation is used during syncing.
- * The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to notify callers about
- * changes once the update is applied.
+ * The array of operations is effectively a diff to the table's previous state. This diff can be conveniently used to
+ * notify callers about changes once the update is applied.
  *
  * ## Swap-In Update Mechanism
  * The ASPA table's **Swap-In** update mechanism avoids blocking callers who want to
  * verify an `AS_PATH` (and therefore need read access to the table) while an update is in progress and removes the
- * need for an *undo mechanism* in case the update to the ASPA table itself or some other action performed inbetween fails.
+ * need for an *undo mechanism* in case the update to the ASPA table itself or some other action performed
+ * inbetween fails.
  *
  * Performing an update using this mechanism involves these steps:
  * - **Compute Update**:
- *   Every time you want to update a given ASPA table, call `aspa_table_update_swap_in_compute`. This will create a new ASPA
- *   array, appending both existing records and new records. Everything needed to update the table is stored in an update structure.
+ *   Every time you want to update a given ASPA table, call `aspa_table_update_swap_in_compute`.
+ *   This will create a new ASPA array, appending both existing records and new records. Everything needed to update
+ *   the table is stored in an update structure.
  * - **Apply Update** or **Discard Update**:
- *   You either have to apply the update using `aspa_table_update_swap_in_apply` or discard it by calling `aspa_table_update_swap_in_discard`.
- *   This will either swap in the newly created ASPA array and notify clients about changes or discard and release data that's now unused..
+ *   You either have to apply the update using `aspa_table_update_swap_in_apply` or discard it by calling
+ *   `aspa_table_update_swap_in_discard`. This will either swap in the newly created ASPA array and notify
+ *   clients about changes or discard and release data that's now unused.
  *
- * The implementation guarantess no changes are made to the ASPA table between calling `aspa_table_update_swap_in_compute`
- * and `aspa_table_update_swap_in_apply`/`aspa_table_update_swap_in_discard`.
+ * The implementation guarantess no changes are made to the ASPA table between
+ * calling `aspa_table_update_swap_in_compute` and `aspa_table_update_swap_in_apply`
+ * or `aspa_table_update_swap_in_discard`.
  *
  * ## In-Place Update Mechanism
- * The ASPA table's **In-Place** update mechanism involves in-place modifications to the array of records and an undo function
- * that undoes changes made previously.
+ * The ASPA table's **In-Place** update mechanism involves in-place modifications to the array of records
+ * and an undo function that undoes changes made previously.
  *
  * Performing an update using this mechanism involves these steps:
  *  - **Update**:
  *   Every time you want to update a given ASPA table, call `aspa_table_update_in_place`. This will modify the ASPA
- *   array. If the update fails, `failed_operation` will be set to the operation where the error occuring.
+ *   array. If the update fails, `failed_operation` will be set to the operation where the error occur53ring.
  * - **Undo Update** (optional):
- *   You may, but do not need to, undo the update using `aspa_table_update_in_place_undo`. This will undo all operations up
- *   to `failed_operation` or all operations.
+ *   You may, but do not need to, undo the update using `aspa_table_update_in_place_undo`. This will undo all
+ *   operations up to `failed_operation` or all operations.
  * - **Clean Up**:
- *   After computing the update you should go through a cleanup step using `aspa_table_update_in_place_cleanup`. This 
- *   will deallocate provider arrays and other data created during the update that's now unused.
+ *   After computing the update you should go through a cleanup step using `aspa_table_update_in_place_cleanup`.
+ *   This will deallocate provider arrays and other data created during the update that's now unused.
  *
  * ## Special Cases
  * There're various cases that need to be handled appropriately by both implementations.
@@ -139,14 +143,14 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
  * @param index A value uniquely identifying this operation's position within the array of operations.
  * @param type The operation's type.
  * @param record The record that should be added or removed.
- * @param is_no_op A boolean value determining whether this operation is part of a pair of 'add $CAS' and 'remove $CAS' operations that form a no-op.
+ * @param is_no_op A boolean value determining whether this operation is part of a pair
+ * of 'add $CAS' and 'remove $CAS' operations that form a no-op.
  */
 struct aspa_update_operation {
 	size_t index;
 	enum aspa_operation_type type;
 	struct aspa_record record;
 	bool is_no_op;
-	int tmp_isTreated;
 };
 
 // MARK: - Swap-In Update Mechanism
@@ -175,17 +179,21 @@ struct aspa_update {
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
  * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
- * @note This function acquires an update lock on the given ASPA table ensuring no mutations occur while computing the update or before the update is applied.
- * You must call @c aspa_table_update_swap_in_apply or @c aspa_table_update_swap_in_discard to either apply or discard the update.
+ * @note This function acquires an update lock on the given ASPA table ensuring no mutations occur while
+ * computing the update or before the update is applied.
+ * You must call @c aspa_table_update_swap_in_apply or @c aspa_table_update_swap_in_discard
+ * to either apply or discard the update.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
  * @param[in] operations  Add and remove operations to perform.
  * @param[in] count  Number of operations.
- * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL value initially. Points to an update struct after  this function returns.
+ * @param update The computed update. The update pointer must be non-NULL, but may point to a @c NULL
+ * value initially. Points to an update struct after  this function returns.
  * @return @c ASPA_SUCCESS On success.
  * @return @c ASPA_RECORD_NOT_FOUND If a records is supposed to be removed but cannot be found.
- * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding customer ASN already exists.
+ * @return @c ASPA_DUPLICATE_RECORD If a records is supposed to be added but its corresponding
+ * customer ASN already exists.
  * @return @c ASPA_ERROR On other failures.
  */
 enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table, struct rtr_socket *rtr_socket,

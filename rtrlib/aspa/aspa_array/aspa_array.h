@@ -1,11 +1,11 @@
 /*
-* This file is part of RTRlib.
-*
-* This file is subject to the terms and conditions of the MIT license.
-* See the file LICENSE in the top level directory for more details.
-*
-* Website: http://rtrlib.realmv6.org/
-*/
+ * This file is part of RTRlib.
+ *
+ * This file is subject to the terms and conditions of the MIT license.
+ * See the file LICENSE in the top level directory for more details.
+ *
+ * Website: http://rtrlib.realmv6.org/
+ */
 
 #ifndef RTR_ASPA_DYN_ARRAY_H
 #define RTR_ASPA_DYN_ARRAY_H
@@ -54,7 +54,8 @@ void aspa_array_free(struct aspa_array *array, bool free_provider_arrays);
  * @param array The ASPA array that will hold the new record.
  * @param index The index at which the new record will be stored.
  * @param record The new record.
- * @param copy_providers A boolean value indicating whether the array should copy the record's providers before inserting the record.
+ * @param copy_providers A boolean value indicating whether the array should copy the record's
+ * providers before inserting the record.
  * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
 enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
@@ -65,7 +66,8 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
  *
  * @param array The ASPA array that will hold the new record.
  * @param record The record that will be appended to the array.
- * @param copy_providers A boolean value indicating whether the array should copy the record's providers before appending the record.
+ * @param copy_providers A boolean value indicating whether the array should copy the record's
+ * providers before appending the record.
  * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
  */
 enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers);
