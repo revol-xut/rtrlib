@@ -62,7 +62,8 @@ enum aspa_operation_type {
  * or was removed from the @p aspa_table.
  *
  * @param aspa_table ASPA table which was updated.
- * @param record ASPA rrecord that was modified.
+ * @param record ASPA record that was modified.
+ * @param rtr_socket The socket the record originated from
  * @param operation_type The type of this operation.
  */
 typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_record record,
@@ -73,7 +74,7 @@ typedef void (*aspa_update_fp)(struct aspa_table *aspa_table, const struct aspa_
 
  * @param lock Read-Write lock to prevent data races.
  * @param update_lock Read-Write lock to prevent changes made to the table while an update is in progress.
- * @param Update function, called when the dynamic ordered array changes.
+ * @param update function, called when the dynamic ordered array changes.
  * @param sockets sockets Sockets, each storing a dynamic ordered array
  *
  * An ASPA table consists of a linked list of a sockets  and ASPA arrays, simplifying removing or replacing records
@@ -87,7 +88,7 @@ struct aspa_table {
 };
 
 /**
- * @brief Possible return values for aspa_ functions.
+ * @brief Possible return values for `aspa_*` functions.
  */
 enum aspa_status {
 	/** Operation was successful. */
@@ -104,7 +105,7 @@ enum aspa_status {
 };
 
 /**
- * @brief Initializes the aspa_table struct.
+ * @brief Initializes the @p aspa_table struct.
  *
  * @param[in] aspa_table aspa_table that will be initialized.
  * @param[in] update_fp Pointer to update function
@@ -112,7 +113,7 @@ enum aspa_status {
 void aspa_table_init(struct aspa_table *aspa_table, aspa_update_fp update_fp);
 
 /**
- * @brief Frees the memory associated with the aspa_table.
+ * @brief Frees the memory associated with the @p aspa_table
  *
  * @param[in] aspa_table aspa_table that will be initialized.
  * @param notify A boolean value determining whether to notify clients about records being removed from the table.
@@ -120,10 +121,11 @@ void aspa_table_init(struct aspa_table *aspa_table, aspa_update_fp update_fp);
 void aspa_table_free(struct aspa_table *aspa_table, bool notify);
 
 /**
- * @brief Removes all entries in the spki_table that match the passed socket_id.
+ * @brief Removes all records in the @p aspa_table that originated from the socket.
  *
- * @param[in] aspa_table ASPA table to use.
- * @param[in] socket origin socket of the record
+ * @param aspa_table ASPA table to use.
+ * @param rtr_socket Record's origin socket.
+ * @param notify A boolean value determining whether clients should be notified about the records' removal.
  * @return @c SPKI_SUCCESS On success.
  * @return @c SPKI_ERROR On error.
  */
@@ -145,22 +147,22 @@ enum aspa_verification_result {
 /**
  * @brief Verifies an AS_PATH .
  *
- * Implements an optimized version of the ASPA verification algorithm described in section 6.1 of
+ * Implements an optimized version of the ASPA verification algorithm described in section 6 of
  * https://datatracker.ietf.org/doc/draft-ietf-sidrops-aspa-verification/16/ .
  *
  * @param[in] aspa_table ASPA table to use.
- * @param[in] direction @c AS_PATH direction, as explained in the draft
- * @param[in] as_path @c AS_PATH array to be validated: concatenated of BGP UPDATE's @c AS_PATHs
+ * @param[in] direction `AS_PATH` direction, as explained in the draft
+ * @param[in] as_path `AS_PATH` array to be validated: concatenated of BGP UPDATEs' `AS_PATH`s
  * @param[in] len the length of @p as_path array
- * @return @c ASPA_AS_PATH_UNKNOWN if the @c AS_PATH cannot be fully verified
- * @return @c ASPA_AS_PATH_INVALID if @c AS_PATH is invalid
- * @return @c ASPA_AS_PATH_VALID if @c AS_PATH is valid
+ * @return @c ASPA_AS_PATH_UNKNOWN if the `AS_PATH` cannot be fully verified
+ * @return @c ASPA_AS_PATH_INVALID if `AS_PATH` is invalid
+ * @return @c ASPA_AS_PATH_VALID if `AS_PATH` is valid
  */
 enum aspa_verification_result aspa_verify_as_path(struct aspa_table *aspa_table, uint32_t as_path[], size_t len,
 						  enum aspa_direction direction);
 
 /**
- * @brief Collapses an @c AS_PATH in-place, replacing in-series repetitions with single occurences
+ * @brief Collapses an `AS_PATH` in-place, replacing in-series repetitions with single occurences
  *
  * @return Length of the given array.
  */

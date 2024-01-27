@@ -120,6 +120,8 @@ struct rtr_mgr_config {
 			every added and removed pfx_record.
  * @param[in] spki_update_fp Pointer to spki_update_fp callback, that is
 			     executed for every added and removed spki_record.
+ * @param[in] aspa_update_fp Pointer to aspa_update_fp callback, that is
+				 executed for every added and removed aspa_record..
  * @param[in] status_fp Pointer to a function that is called if the connection
  *			status from one of the socket groups is changed.
  * @param[in] status_fp_data Pointer to a memory area that is passed to the

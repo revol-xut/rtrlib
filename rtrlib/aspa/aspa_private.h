@@ -10,7 +10,7 @@
 /**
  * @defgroup mod_aspa_h ASPA validation table
  *
- * @brief The aspa_table is an abstract data structure to organize the validated Autonomous System Provider
+ * @brief The @p aspa_table is an abstract data structure to organize the validated Autonomous System Provider
  * Authorization  data received from an RPKI-RTR cache server.
  *
  * # Updating an ASPA table
@@ -46,10 +46,10 @@
  * and an undo function that undoes changes made previously.
  *
  * Performing an update using this mechanism involves these steps:
- *  - **Update**:
+ * - **Update**:
  *   Every time you want to update a given ASPA table, call `aspa_table_update_in_place`. This will modify the ASPA
- *   array. If the update fails, `failed_operation` will be set to the operation where the error occur53ring.
- * - **Undo Update** (optional):
+ *   array. If the update fails, `failed_operation` will be set to the operation where the error occurring.
+ * - **Undo Update**:
  *   You may, but do not need to, undo the update using `aspa_table_update_in_place_undo`. This will undo all
  *   operations up to `failed_operation` or all operations.
  * - **Clean Up**:
@@ -104,14 +104,14 @@
 enum aspa_hop_result { ASPA_NO_ATTESTATION, ASPA_NOT_PROVIDER_PLUS, ASPA_PROVIDER_PLUS };
 
 /**
- * @brief Checks a hop in the given @c AS_PATH .
+ * @brief Checks a hop in the given `AS_PATH`.
  * @return @c aspa_hop_result .
  */
 enum aspa_hop_result aspa_check_hop(struct aspa_table *aspa_table, uint32_t customer_asn, uint32_t provider_asn);
 
 // MARK: - Storage
 /**
- * @brief A linked list storing the bond between a @c rtr_socket and an @c aspa_array .
+ * @brief A linked list storing the bond between a @p rtr_socket and an @p aspa_array .
  *
  * @param aspa_array The node's array of ASPA records.
  * @param rtr_socket The socket the records originate from.
@@ -128,7 +128,7 @@ struct aspa_store_node {
  *
  * @param[in,out] dst The destination table. Existing records associated with the socket are replaced.
  * @param[in,out] src The source table.
- * @param[in,out] rtr_socket The socket the records are associated with.
+ * @param[in] rtr_socket The socket the records are associated with.
  * @param notify_dst A boolean value determining whether to notify the destination table's clients.
  * @param notify_src A boolean value determining whether to notify the source table's clients.
  * @return @c ASPA_SUCCESS if the operation succeeds, @c ASPA_ERROR if it fails.
@@ -143,8 +143,8 @@ enum aspa_status aspa_table_src_replace(struct aspa_table *dst, struct aspa_tabl
  * @param index A value uniquely identifying this operation's position within the array of operations.
  * @param type The operation's type.
  * @param record The record that should be added or removed.
- * @param is_no_op A boolean value determining whether this operation is part of a pair
- * of 'add $CAS' and 'remove $CAS' operations that form a no-op.
+ * @param is_no_op A boolean value indicating whether this operation is part of a pair
+ * of 'add `<CAS>`' and 'remove `<CAS>`' operations that form a no-op.
  */
 struct aspa_update_operation {
 	size_t index;
@@ -178,10 +178,10 @@ struct aspa_update {
  * @brief Computes an update structure that can later be applied to the given ASPA table.
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
- * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
+ * operation must have its `provider_count` set to 0 and `provider_array` set to `NULL`.
  * @note This function acquires an update lock on the given ASPA table ensuring no mutations occur while
  * computing the update or before the update is applied.
- * You must call @c aspa_table_update_swap_in_apply or @c aspa_table_update_swap_in_discard
+ * You must call `aspa_table_update_swap_in_apply` or `aspa_table_update_swap_in_discard`
  * to either apply or discard the update.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
@@ -201,7 +201,7 @@ enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table
 						   struct aspa_update **update);
 
 /**
- * @brief Applys the given update, as previously computed by @c aspa_table_update_swap_in_compute ,
+ * @brief Applys the given update, as previously computed by `aspa_table_update_swap_in_compute`,
  * releases memory allocated while computing the update and unlocks update lock. The update is consumed.
  *
  * @param update The update that will be applied.
@@ -222,7 +222,7 @@ void aspa_table_update_swap_in_discard(struct aspa_update **update);
  * @brief Updates the given ASPA table.
  *
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
- * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
+ * operation must have its `provider_count` set to `0` and `provider_array` set to `NULL`.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
