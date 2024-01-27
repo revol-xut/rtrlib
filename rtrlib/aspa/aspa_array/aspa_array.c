@@ -90,12 +90,9 @@ static enum aspa_status aspa_array_reallocate(struct aspa_array *array)
 	return ASPA_SUCCESS;
 }
 
-enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
-				   bool copy_providers)
+static enum aspa_status aspa_array_insert_internal(struct aspa_array *array, size_t index, struct aspa_record *record,
+						   bool copy_providers)
 {
-	if (index > array->size)
-		return ASPA_ERROR;
-
 	// check if this element will fit into the array
 	if (array->size >= array->capacity) {
 		// increasing the array's size so the new element fits
@@ -133,48 +130,34 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 		memmove(&array->data[index + 1], &array->data[index], trailing);
 	}
 
-	array->size += 1;
+	// append the record at the end
 	array->data[index] = *record;
 	array->data[index].provider_asns = provider_asns;
+	array->size += 1;
+
 	return ASPA_SUCCESS;
+}
+
+enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
+				   bool copy_providers)
+{
+	if (index > array->size || !array || !array->data || !record)
+		return ASPA_ERROR;
+
+	return aspa_array_insert_internal(array, index, record, copy_providers);
 }
 
 enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers)
 {
-	// check if this element will fit into the array
-	if (array->size >= array->capacity) {
-		// increasing the array's size so the new element fits
-		if (aspa_array_reallocate(array) != ASPA_SUCCESS)
-			return ASPA_ERROR;
-	}
+	if (!array || !array->data || !record)
+		return ASPA_ERROR;
 
-	uint32_t *provider_asns = NULL;
-
-	if (record->provider_count > 0) {
-		if (copy_providers) {
-			size_t provider_size = record->provider_count * sizeof(uint32_t);
-
-			provider_asns = lrtr_malloc(provider_size);
-			if (!provider_asns)
-				return ASPA_ERROR;
-
-			memcpy(provider_asns, record->provider_asns, provider_size);
-		} else {
-			provider_asns = record->provider_asns;
-		}
-	}
-
-	// append the record at the end
-	array->data[array->size] = *record;
-	array->data[array->size].provider_asns = provider_asns;
-	array->size += 1;
-
-	return ASPA_SUCCESS;
+	return aspa_array_insert_internal(array, array->size, record, copy_providers);
 }
 
 enum aspa_status aspa_array_remove(struct aspa_array *array, size_t index, bool free_providers)
 {
-	if (index >= array->size || array->size == 0)
+	if (!array || index >= array->size || array->size == 0)
 		return ASPA_RECORD_NOT_FOUND;
 
 	if (free_providers && array->data[index].provider_asns)

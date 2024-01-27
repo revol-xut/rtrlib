@@ -1093,6 +1093,7 @@ static int rtr_compute_update_aspa_table(struct rtr_socket *rtr_socket, struct a
 		return RTR_ERROR;
 	}
 
+	RTR_DBG1("ASPA update computed");
 	return RTR_SUCCESS;
 }
 #endif
@@ -1273,7 +1274,7 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 
 	if (proceed) {
 		aspa_table_update_swap_in_apply(&aspa_update);
-		RTR_DBG1("ASPA records added");
+		RTR_DBG1("ASPA data added");
 	} else {
 		aspa_table_update_swap_in_discard(&aspa_update);
 	}

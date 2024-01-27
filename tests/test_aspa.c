@@ -200,18 +200,6 @@ static void expect_update_callbacks(struct update_callback callbacks[], size_t c
 	}
 }
 
-static char operation_type_debug_description(const enum aspa_operation_type operation_type)
-{
-	switch (operation_type) {
-	case ASPA_ADD:
-		return '+';
-	case ASPA_REMOVE:
-		return '-';
-	default:
-		return '?';
-	}
-}
-
 static void aspa_update_callback(struct aspa_table *s, const struct aspa_record record,
 				 const struct rtr_socket *rtr_sockt __attribute__((unused)),
 				 const enum aspa_operation_type operation_type)
@@ -795,7 +783,7 @@ static void test_long(struct rtr_socket *socket)
 
 		struct aspa_record records[record_count];
 
-		for (int customer_asn = i + 1; customer_asn <= base + 2; customer_asn++) {
+		for (uint32_t customer_asn = i + 1; customer_asn <= base + 2; customer_asn++) {
 			for (int k = 0; k < 4; k++)
 				provider_asns[4 * customer_asn + k] = customer_asn + k + 1;
 
