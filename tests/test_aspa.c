@@ -264,7 +264,7 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	assert(socket->aspa_table->store->aspa_array);
 	assert(socket->aspa_table->store->rtr_socket);
 	assert(socket->aspa_table->store->rtr_socket == socket);
-	assert(socket->aspa_table->store->next == NULL);
+	assert(!socket->aspa_table->store->next);
 
 	struct aspa_array *array = socket->aspa_table->store->aspa_array;
 
@@ -759,6 +759,11 @@ static void test_announce_withdraw_announce_twice(struct rtr_socket *socket)
 
 static void test_long(struct rtr_socket *socket)
 {
+	const size_t NPROV = 4;
+	// amount of ASPAs to be withdrawn (twice as much are added)
+	const size_t N = 256 + 4;
+
+	// initial cycle: add two new aspas
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 1, ASNS(2, 3, 4, 5));
 	APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, 2, ASNS(3, 4, 5, 6));
@@ -777,44 +782,54 @@ static void test_long(struct rtr_socket *socket)
 		RECORD(2, ASNS(3, 4, 5, 6)),
 	);
 
-	uint32_t provider_asns[2056 * 4 + 3];
+	// repeated cycle: withdraw one, announce two new
+	// store expected provider asns, starting with providers for c_an = 2
+	uint32_t provider_asns[(2 * N - 1) * NPROV];
 
-	for (int i = 1; i < 1028; i++) {
-		uint32_t base = 2 * i;
+	// enter provider_asns for ASPA record 2 => {3, 4, 5, 6}
+	for (int k = 0; k < NPROV; k++)
+		provider_asns[k] = k + 3;
+
+	// customer asn to be withdrawn
+	for (int c_wd = 1; c_wd < N; c_wd++) {
+		// first customer asn to be announced
+		uint32_t c_an = 2 * c_wd + 1;
 
 		begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
-		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, i,
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_WITHDRAW, c_wd,
 			ASNS());
-
-		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, base + 1,
-			ASNS(base + 2, base + 3, base + 4, base + 5));
-
-		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, base + 2,
-			ASNS(base + 3, base + 4, base + 5, base + 6));
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, c_an,
+			ASNS(c_an + 1, c_an + 2, c_an + 3, c_an + 4));
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, c_an + 1,
+			ASNS(c_an + 2, c_an + 3, c_an + 4, c_an + 5));
 
 		end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 
 		EXPECT_UPDATE_CALLBACKS(
-			REMOVED(RECORD(i, ASNS(i + 1, i + 2, i + 3, i + 4))),
-			ADDED(RECORD(base + 1, ASNS(base + 2, base + 3, base + 4, base + 5))),
-			ADDED(RECORD(base + 2, ASNS(base + 3, base + 4, base + 5, base + 6))),
+			REMOVED(RECORD(c_wd, ASNS(c_wd + 1, c_wd + 2, c_wd + 3, c_wd + 4))),
+			ADDED(RECORD(c_an, ASNS(c_an + 1, c_an + 2, c_an + 3, c_an + 4))),
+			ADDED(RECORD(c_an + 1, ASNS(c_an + 2, c_an + 3, c_an + 4, c_an + 5))),
 		);
 		assert(rtr_sync(socket) == RTR_SUCCESS);
 		assert(callback_index == callback_count);
 
-		size_t record_count = i + 2;
+		// store announced ASPAs' providers for validation
+		for (int k = 0; k < NPROV; k++) {
+			provider_asns[NPROV * (c_an - 2) + k] = c_an + k + 1;
+			provider_asns[NPROV * (c_an - 1) + k] = c_an + k + 2;
+		}
 
+		// build array of all records expected to be in aspa_table
+		// (customer asns after last-withdrawn until including last-announced)
+		size_t record_count = c_wd + 2;
 		struct aspa_record records[record_count];
 
-		for (uint32_t customer_asn = i + 1; customer_asn <= base + 2; customer_asn++) {
-			for (int k = 0; k < 4; k++)
-				provider_asns[4 * customer_asn + k] = customer_asn + k + 1;
-
-			records[customer_asn - i - 1] =
+		for (uint32_t c_ex = c_wd + 1; c_ex <= c_an + 1; c_ex++) {
+			records[c_ex - (c_wd + 1)] =
 				((struct aspa_record) {
-					.customer_asn = customer_asn,
-					.provider_count = 4,
-					.provider_asns = &provider_asns[4 * customer_asn]
+					.customer_asn = c_ex,
+					.provider_count = NPROV,
+					.provider_asns = &provider_asns[NPROV * (c_ex - 2)]
 				});
 		}
 		assert_table(socket, records, record_count);
