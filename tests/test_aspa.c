@@ -836,6 +836,54 @@ static void test_long(struct rtr_socket *socket)
 	}
 }
 
+static void test_lots(struct rtr_socket *socket)
+{
+	const size_t NPROV = 4;
+	// amount of ASPAs to be withdrawn (twice as much are added)
+	const size_t N = 256 + 4;
+
+	// providers (ascending integers)
+	uint32_t provider_asns[N + NPROV - 1];
+
+	for (size_t i = 0; i < N + NPROV - 1; i++)
+		provider_asns[i] = i + 2;
+
+	// aspa pdus
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+
+	for (size_t i = 0; i < N; i++)
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, i + 1, ASNS(i+2,i+3,i+4,i+5));
+
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 437);
+
+	// records to verify aspa_table
+	struct aspa_record records[N];
+	// callbacks
+	struct update_callback callbacks[N];
+
+	for (size_t i = 0; i < N; i++) {
+		records[i] = (struct aspa_record){
+				.customer_asn = i + 1, \
+				.provider_count = 4, \
+				.provider_asns = &provider_asns[i]
+				};
+		callbacks[i] = (struct update_callback){
+				.source = NULL,
+				.record = records[i],
+				.type = ASPA_ADD
+				};
+	}
+
+	expect_update_callbacks(callbacks, N);
+
+	// sync
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
+
+	assert_table(socket, records, N);
+
+}
+
 static void test_corrupt(struct rtr_socket *socket)
 {
 	// Test: send corrupt pdu after having received valid data
@@ -1034,6 +1082,12 @@ static void run_tests(bool is_resetting)
 	printf("\nTEST: long\n");
 	socket = create_socket(is_resetting);
 	test_long(socket);
+
+	cleanup(&socket);
+
+	printf("\nTEST: lots\n");
+	socket = create_socket(is_resetting);
+	test_lots(socket);
 
 	cleanup(&socket);
 }
