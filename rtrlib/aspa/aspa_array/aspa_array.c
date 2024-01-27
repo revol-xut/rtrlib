@@ -199,7 +199,7 @@ struct aspa_record *aspa_array_search(struct aspa_array *array, uint32_t custome
 
 	// left and right bound of our search space
 	register size_t left = 0;
-	register size_t right = array->size;
+	register size_t right = array->size - 1;
 
 	// we stop if right and left crossed
 	while (left <= right) {
