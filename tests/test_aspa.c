@@ -43,6 +43,7 @@ struct update_callback {
 #define ASNS(...) ((uint32_t[]){__VA_ARGS__})
 
 // clang-format off
+
 #define APPEND_ASPA(version, flag, cas, providers) \
 	append_aspa(version, flag, cas, sizeof(providers) == 0 ? NULL : providers, \
 		    (size_t)(sizeof(providers) / sizeof(uint32_t)))
@@ -74,6 +75,7 @@ struct update_callback {
 	struct update_callback _LINEVAR(_callbacks)[] = {__VA_ARGS__}; \
 	expect_update_callbacks(_LINEVAR(_callbacks), \
 				(size_t)(sizeof(_LINEVAR(_callbacks)) / sizeof(struct update_callback)))
+
 // clang-format on
 
 #define ASPA_ANNOUNCE 1
