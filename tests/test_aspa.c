@@ -76,6 +76,8 @@ struct update_callback {
 	expect_update_callbacks(_LINEVAR(_callbacks), \
 				(size_t)(sizeof(_LINEVAR(_callbacks)) / sizeof(struct update_callback)))
 
+#define EXPECT_NO_UPDATE_CALLBACKS(...) \
+	expect_update_callbacks(NULL, 0)
 // clang-format on
 
 #define ASPA_ANNOUNCE 1
@@ -189,16 +191,12 @@ static void clear_expected_callbacks(void)
 
 static void expect_update_callbacks(struct update_callback callbacks[], size_t count)
 {
-	clear_expected_callbacks();
-
 	if (callbacks && count > 0) {
 		expected_callbacks = callbacks;
 		callback_count = count;
 		callback_index = 0;
 	} else {
-		expected_callbacks = NULL;
-		callback_count = 0;
-		callback_index = 0;
+		clear_expected_callbacks();
 	}
 }
 
@@ -368,7 +366,7 @@ static void test_announce_existing(struct rtr_socket *socket)
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 
 	// No updates expected, fails at first PDU
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
 	assert(callback_index == callback_count);
@@ -390,7 +388,7 @@ static void test_announce_twice(struct rtr_socket *socket)
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 
 	// No updates expected, fails at first PDU
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
 	assert(callback_index == callback_count);
@@ -412,7 +410,7 @@ static void test_withdraw_nonexisting(struct rtr_socket *socket)
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 
 	// No updates expected, fails at first PDU
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
 	assert(callback_index == callback_count);
@@ -440,7 +438,7 @@ static void test_announce_withdraw(struct rtr_socket *socket)
 		REMOVED(RECORD(3300, ASNS(3301, 3302, 3303, 3304))),
 	);
 #else
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 #endif
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
@@ -570,7 +568,7 @@ static void test_regular(struct rtr_socket *socket)
 	);
 #else
 	printf("Ignoring No-Ops!");
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 #endif
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
@@ -901,7 +899,7 @@ static void test_corrupt(struct rtr_socket *socket)
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 444);
 
 	// No updates expected, fails at first PDU
-	EXPECT_UPDATE_CALLBACKS();
+	EXPECT_NO_UPDATE_CALLBACKS();
 	assert(rtr_sync(socket) == RTR_ERROR);
 	assert(callback_index == callback_count);
 
