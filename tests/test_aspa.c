@@ -323,6 +323,7 @@ static void test_withdraw(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_EMPTY_TABLE(socket);
 }
@@ -343,6 +344,7 @@ static void test_regular_announcements(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1100, ASNS(1101, 1102, 1103, 1104)),
@@ -367,6 +369,7 @@ static void test_announce_existing(struct rtr_socket *socket)
 	EXPECT_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
 }
@@ -388,6 +391,7 @@ static void test_announce_twice(struct rtr_socket *socket)
 	EXPECT_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
 }
@@ -409,6 +413,7 @@ static void test_withdraw_nonexisting(struct rtr_socket *socket)
 	EXPECT_UPDATE_CALLBACKS();
 
 	assert(rtr_sync(socket) == RTR_ERROR);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
 }
@@ -437,6 +442,7 @@ static void test_announce_withdraw(struct rtr_socket *socket)
 #endif
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
 }
@@ -474,6 +480,7 @@ static void test_withdraw_announce(struct rtr_socket *socket)
 #endif
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(2201, 2202, 2203, 2204)));
 }
@@ -497,6 +504,7 @@ static void test_regular(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1100, ASNS(1101, 1102, 1103, 1104)),
@@ -513,6 +521,7 @@ static void test_regular(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1100, ASNS(1101, 1102, 1103, 1104)),
@@ -536,6 +545,7 @@ static void test_regular(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(0, ASNS()),
@@ -562,6 +572,7 @@ static void test_regular(struct rtr_socket *socket)
 #endif
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(0, ASNS()),
@@ -600,7 +611,9 @@ static void test_regular_swap(struct rtr_socket *socket)
 		ADDED_TO(dst_table, RECORD(1100, ASNS(1101, 1102, 1103, 1104))),
 		ADDED_TO(dst_table, RECORD(4400, ASNS(4401)))
 	);
+
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1100, ASNS(1101, 1102, 1103, 1104)),
@@ -630,6 +643,7 @@ static void test_regular_swap(struct rtr_socket *socket)
 	);
 
 	assert(aspa_table_src_replace(dst_table, src_table, socket, true, true) == ASPA_SUCCESS);
+	assert(callback_index == callback_count);
 
 	aspa_table_free(dst_table, false);
 }
@@ -653,6 +667,7 @@ static void test_withdraw_twice(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1900, ASNS(1901, 1902, 1903, 1904)),
@@ -669,6 +684,7 @@ static void test_withdraw_twice(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1900, ASNS(1901, 1902, 1903, 1904)),
@@ -751,6 +767,7 @@ static void test_long(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(1, ASNS(2, 3, 4, 5)),
@@ -780,6 +797,7 @@ static void test_long(struct rtr_socket *socket)
 			ADDED(RECORD(base + 2, ASNS(base + 3, base + 4, base + 5, base + 6))),
 		);
 		assert(rtr_sync(socket) == RTR_SUCCESS);
+		assert(callback_index == callback_count);
 
 		size_t record_count = i + 2;
 
@@ -820,6 +838,7 @@ static void test_corrupt(struct rtr_socket *socket)
 	// No updates expected, fails at first PDU
 	EXPECT_UPDATE_CALLBACKS();
 	assert(rtr_sync(socket) == RTR_ERROR);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket,
 		RECORD(0, ASNS()),
