@@ -1,11 +1,11 @@
 /*
-* This file is part of RTRlib.
-*
-* This file is subject to the terms and conditions of the MIT license.
-* See the file LICENSE in the top level directory for more details.
-*
-* Website; http://rtrlib.realmv6.org/
-*/
+ * This file is part of RTRlib.
+ *
+ * This file is subject to the terms and conditions of the MIT license.
+ * See the file LICENSE in the top level directory for more details.
+ *
+ * Website; http://rtrlib.realmv6.org/
+ */
 
 /*
  * AS_PATH verification tests are derived from
@@ -19,19 +19,19 @@
 #include <assert.h>
 #include <string.h>
 
-#define ASNS(...)           \
-	(uint32_t[])        \
-	{                   \
-		__VA_ARGS__ \
-	}
+#define ASNS(...)             \
+	((uint32_t[])         \
+	{                     \
+		__VA_ARGS__   \
+	})
 
 // clang-format off
 
-#define RECORD(cas, providers) (struct aspa_record) { \
+#define RECORD(cas, providers) ((struct aspa_record) { \
 	.customer_asn = cas, \
 	.provider_count = (size_t)(sizeof(providers) / sizeof(uint32_t)), \
 	.provider_asns = sizeof(providers) == 0 ? NULL : providers \
-}
+})
 
 #define ADD_OPERATION(idx, rec) ((struct aspa_update_operation) { \
 	.index = idx, \
@@ -41,20 +41,16 @@
 })
 
 #define BUILD_ASPA_TABLE(tablename, ...) \
-	struct aspa_table *tablename = lrtr_malloc(sizeof(*tablename)); \
-	assert(tablename != NULL); \
-	aspa_table_init(tablename, NULL); \
+	struct aspa_table *(tablename) = lrtr_malloc(sizeof(*tablename)); \
+	assert((tablename)); \
+	aspa_table_init((tablename), NULL); \
 	\
-	NEW_SOCKET_ADD_RECORDS(tablename, __VA_ARGS__) \
+	NEW_SOCKET_ADD_RECORDS((tablename), __VA_ARGS__) \
 
-
-#define _CAT_(a, b) a ## b
-#define _CAT(a, b) _CAT_(a, b)
-
-#define NEW_SOCKET_ADD_RECORDS(aspa_table, ...) { \
-	struct rtr_socket *_CAT(rtr_socket, __LINE__) = lrtr_malloc(sizeof(struct rtr_socket)); \
-	assert(_CAT(rtr_socket, __LINE__) != NULL); \
-	_CAT(rtr_socket, __LINE__)->aspa_table = aspa_table; \
+#define NEW_SOCKET_ADD_RECORDS(tablename, ...) { \
+	struct rtr_socket *(rtr_socket ## __LINE__) = lrtr_malloc(sizeof(struct rtr_socket)); \
+	assert((rtr_socket ## __LINE__)); \
+	(rtr_socket ## __LINE__)->aspa_table = (tablename); \
 	\
 	struct aspa_record records[] = { __VA_ARGS__ }; \
 	size_t len = sizeof(records) / sizeof(struct aspa_record); \
@@ -65,18 +61,21 @@
 		for (size_t i = 0; i < len; i++) \
 			operations[i] = ADD_OPERATION(i, records[i]); \
 		\
-		assert(aspa_table_update_swap_in_compute(aspa_table, _CAT(rtr_socket, __LINE__), operations, len, &update) == ASPA_SUCCESS); \
+		assert(aspa_table_update_swap_in_compute((tablename), \
+			(rtr_socket ## __LINE__), operations, len, &update) \
+			== ASPA_SUCCESS); \
 		aspa_table_update_swap_in_apply(&update); \
 	} \
 }
 
 #define VERIFY_AS_PATH(aspa_table, direction, result, asns) \
-	assert(result == aspa_verify_as_path(aspa_table, asns, sizeof(asns)/sizeof(uint32_t), direction));
+	assert((result) == aspa_verify_as_path(aspa_table, asns, sizeof(asns) / sizeof(uint32_t), direction))
 
-static struct aspa_table *test_create_aspa_table()
+static struct aspa_table *test_create_aspa_table(void)
 {
 	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
-	assert(aspa_table != NULL);
+
+	assert(aspa_table);
 	aspa_table_init(aspa_table, NULL);
 
 	NEW_SOCKET_ADD_RECORDS(aspa_table,
@@ -102,7 +101,7 @@ static struct aspa_table *test_create_aspa_table()
 		RECORD(403, ASNS(303)),
 		RECORD(304, ASNS(403)),
 	);
-	
+
 	NEW_SOCKET_ADD_RECORDS(aspa_table,
 		RECORD(100, ASNS(200, 202))
 	);
@@ -227,7 +226,7 @@ static void test_downstream(struct aspa_table *aspa_table)
  *   20: 30
  *
  */
-static void test_verify_example_1()
+static void test_verify_example_1(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -238,7 +237,6 @@ static void test_verify_example_1()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
 		ASNS(20, 30, 40, 70, 80));
 }
-
 
 /**
  * Example 2 (downstream) (unknown)
@@ -256,7 +254,7 @@ static void test_verify_example_1()
  *   90: 30, 40
  *
  */
-static void test_verify_example_2()
+static void test_verify_example_2(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -268,7 +266,6 @@ static void test_verify_example_2()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
 		ASNS(20, 30, 90, 40, 70, 80));
 }
-
 
 /**
  * Example 2b (downstream) (invalid)
@@ -288,7 +285,7 @@ static void test_verify_example_2()
  *   40:   (none)
  *
  */
-static void test_verify_example_2b()
+static void test_verify_example_2b(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -302,7 +299,6 @@ static void test_verify_example_2b()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 90, 40, 70, 80));
 }
-
 
 /**
  * Example 3a (downstream) (unknown)
@@ -319,7 +315,7 @@ static void test_verify_example_2b()
  *   20: 30
  *
  */
-static void test_verify_example_3a()
+static void test_verify_example_3a(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -330,7 +326,6 @@ static void test_verify_example_3a()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
 		ASNS(20, 30, 90, 40, 70, 80));
 }
-
 
 /**
  * Example 3b (downstream) (unknown)
@@ -347,7 +342,7 @@ static void test_verify_example_3a()
  *   20: 30
  *
  */
-static void test_verify_example_3b()
+static void test_verify_example_3b(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -358,7 +353,6 @@ static void test_verify_example_3b()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
 		ASNS(20, 30, 90, 100, 40, 70, 80));
 }
-
 
 /**
  * Example 3c (downstream) (invalid)
@@ -377,7 +371,7 @@ static void test_verify_example_3b()
  *   40:   (none)
  *
  */
-static void test_verify_example_3c()
+static void test_verify_example_3c(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -390,7 +384,6 @@ static void test_verify_example_3c()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 90, 100, 40, 70, 80));
 }
-
 
 /**
  * Example 3d (downstream) (unknown)
@@ -409,7 +402,7 @@ static void test_verify_example_3c()
  *   40:   (none)
  *
  */
-static void test_verify_example_3d()
+static void test_verify_example_3d(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -422,7 +415,6 @@ static void test_verify_example_3d()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_UNKNOWN,
 		ASNS(20, 30, 40, 100, 90, 70, 80));
 }
-
 
 /**
  * Example 3f (downstream) (unknown)
@@ -441,7 +433,7 @@ static void test_verify_example_3d()
  *   40:   (none)
  *
  */
-static void test_verify_example_3f()
+static void test_verify_example_3f(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(80, ASNS(70)),
@@ -455,7 +447,6 @@ static void test_verify_example_3f()
 		ASNS(20, 30, 40, 100, 90, 70, 80));
 }
 
-
 /**
  * Example 4 (upstream) (invalid)
  *
@@ -468,7 +459,7 @@ static void test_verify_example_3f()
  *   70: 80
  *
  */
-static void test_verify_example_4()
+static void test_verify_example_4(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(70, ASNS(80)),
@@ -477,7 +468,6 @@ static void test_verify_example_4()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 40, 50, 60, 70, 80));
 }
-
 
 /**
  * Example 4-fixed (upstream) (invalid)
@@ -494,7 +484,7 @@ static void test_verify_example_4()
  *   30: 20
  *
  */
-static void test_verify_example_4_fixed()
+static void test_verify_example_4_fixed(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(70, ASNS(80)),
@@ -505,7 +495,6 @@ static void test_verify_example_4_fixed()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 40, 50, 60, 70, 80));
 }
-
 
 /**
  * Example 5 (upstream) (valid)
@@ -521,7 +510,7 @@ static void test_verify_example_4_fixed()
  *   30: 20
  *
  */
-static void test_verify_example_5()
+static void test_verify_example_5(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(40, ASNS(30)),
@@ -531,7 +520,6 @@ static void test_verify_example_5()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
 		ASNS(20, 30, 40));
 }
-
 
 /**
  * Example 6 (downstream) (invalid)
@@ -555,7 +543,7 @@ static void test_verify_example_5()
  *   20: 30
  *
  */
-static void test_verify_example_6()
+static void test_verify_example_6(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(120, ASNS(110)),
@@ -572,7 +560,6 @@ static void test_verify_example_6()
 		ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120));
 }
 
-
 /**
  * Example 7 (downstream) (unknown)
  *
@@ -580,7 +567,7 @@ static void test_verify_example_6()
  *
  * read from right: 100 -U-> 90 -U-> 80 -U-> 70 -U-> 60 -U-> 50
  * read from left: 50 -U-> 60 -U-> 70 -U-> 80 -P+-> 90 -P+-> 100
- * 
+ *
  *                        100
  *                     90     110
  *         50 60 70 80           120
@@ -601,7 +588,7 @@ static void test_verify_example_6()
  *   140: 130
  *
  */
-static void test_verify_example_7()
+static void test_verify_example_7(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(20, ASNS(30)),
@@ -619,7 +606,6 @@ static void test_verify_example_7()
 		ASNS(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140));
 }
 
-
 /**
  * Example 8 (downstream) (valid)
  *
@@ -632,7 +618,7 @@ static void test_verify_example_7()
  * (none)
  *
  */
-static void test_verify_example_8()
+static void test_verify_example_8(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 	)
@@ -640,7 +626,6 @@ static void test_verify_example_8()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
 		ASNS(20));
 }
-
 
 /**
  * Example 9 (upstream) (valid)
@@ -654,7 +639,7 @@ static void test_verify_example_8()
  * (none)
  *
  */
-static void test_verify_example_9()
+static void test_verify_example_9(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 	)
@@ -662,7 +647,6 @@ static void test_verify_example_9()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_VALID,
 		ASNS(20));
 }
-
 
 /**
  * Example 11 (downstream) (valid)
@@ -676,7 +660,7 @@ static void test_verify_example_9()
  *   30:   (none)
  *
  */
-static void test_verify_example_11()
+static void test_verify_example_11(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(20, ASNS()),
@@ -686,7 +670,6 @@ static void test_verify_example_11()
 	VERIFY_AS_PATH(aspa_table, ASPA_DOWNSTREAM, ASPA_AS_PATH_VALID,
 		ASNS(20, 30));
 }
-
 
 /**
  * Example 12 (upstream) (unknown)
@@ -699,7 +682,7 @@ static void test_verify_example_11()
  * (none)
  *
  */
-static void test_verify_example_12()
+static void test_verify_example_12(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 	)
@@ -707,7 +690,6 @@ static void test_verify_example_12()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_UNKNOWN,
 		ASNS(20, 30));
 }
-
 
 /**
  * Example 13 (upstream) (invalid)
@@ -727,7 +709,7 @@ static void test_verify_example_12()
  *   20:   (none)
  *
  */
-static void test_verify_example_13()
+static void test_verify_example_13(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(60, ASNS(50)),
@@ -741,14 +723,13 @@ static void test_verify_example_13()
 		ASNS(20, 30, 40, 50, 60));
 }
 
-
 /**
  * Example 14 (upstream) (invalid)
  *
  * as_path: 20, 30, 40, 50, 60
  *
  *     30 <> 40 <> 50 <> 60
- *  20         
+ *  20
  *
  * customer-providers:
  *   60: 50
@@ -758,7 +739,7 @@ static void test_verify_example_13()
  *   20: 30
  *
  */
-static void test_verify_example_14()
+static void test_verify_example_14(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(60, ASNS(50)),
@@ -771,7 +752,6 @@ static void test_verify_example_14()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 40, 50, 60));
 }
-
 
 /**
  * Example 15 (upstream) (invalid)
@@ -789,7 +769,7 @@ static void test_verify_example_14()
  *   20: 30
  *
  */
-static void test_verify_example_15()
+static void test_verify_example_15(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(60, ASNS(50, 20)),
@@ -802,7 +782,6 @@ static void test_verify_example_15()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(20, 30, 40, 50, 60));
 }
-
 
 /**
  * Example 16 (upstream) (invalid)
@@ -818,7 +797,7 @@ static void test_verify_example_15()
  *   40: 30
  *
  */
-static void test_verify_example_16()
+static void test_verify_example_16(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(10, ASNS(20)),
@@ -829,7 +808,6 @@ static void test_verify_example_16()
 	VERIFY_AS_PATH(aspa_table, ASPA_UPSTREAM, ASPA_AS_PATH_INVALID,
 		ASNS(10, 20, 30, 40));
 }
-
 
 /**
  * Example 17 (upstream) (invalid)
@@ -847,7 +825,7 @@ static void test_verify_example_16()
  *   50: 40
  *
  */
-static void test_verify_example_17()
+static void test_verify_example_17(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(10, ASNS(20)),
@@ -860,7 +838,6 @@ static void test_verify_example_17()
 		ASNS(10, 20, 30, 40));
 }
 
-
 /**
  * Example 18 (upstream) (invalid)
  *
@@ -872,7 +849,7 @@ static void test_verify_example_17()
  *   20:   (none)
  *
  */
-static void test_verify_example_18()
+static void test_verify_example_18(void)
 {
 	BUILD_ASPA_TABLE(aspa_table,
 		RECORD(20, ASNS()),
@@ -887,13 +864,14 @@ static void test_verify_example_18()
 static void test_single_collapse(uint32_t input[], size_t input_len, uint32_t output[], size_t output_len)
 {
 	size_t retlen = aspa_collapse_as_path(input, input_len);
+
 	assert(retlen == output_len);
-	for (size_t i = 0; i < output_len; i++) {
+
+	for (size_t i = 0; i < output_len; i++)
 		assert(input[i] == output[i]);
-	}
 }
 
-static void test_collapse()
+static void test_collapse(void)
 {
 	test_single_collapse(NULL, 0, NULL, 0);
 	test_single_collapse((uint32_t[]){1}, 1, (uint32_t[]){1}, 1);
@@ -906,9 +884,10 @@ static void test_collapse()
 	test_single_collapse((uint32_t[]){1, 2, 2, 3}, 4, (uint32_t[]){1, 2, 3}, 3);
 }
 
-int main()
+int main(void)
 {
 	struct aspa_table *aspa_table = test_create_aspa_table();
+
 	test_hopping(aspa_table);
 	test_upstream(aspa_table);
 	test_downstream(aspa_table);
