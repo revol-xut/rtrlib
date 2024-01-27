@@ -55,8 +55,7 @@
 			operations[i] = ADD_OPERATION(i, records[i]); \
 		\
 		assert(aspa_table_update_swap_in_compute(aspa_table, _CAT(rtr_socket, __LINE__), operations, len, &update) == ASPA_SUCCESS); \
-		aspa_table_update_swap_in_apply(update); \
-		aspa_table_update_swap_in_finish(update); \
+		aspa_table_update_swap_in_apply(&update); \
 	} \
 }
 

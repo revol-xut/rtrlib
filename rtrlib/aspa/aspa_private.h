@@ -30,16 +30,12 @@
  * - **Compute Update**:
  *   Every time you want to update a given ASPA table, call `aspa_table_update_swap_in_compute`. This will create a new ASPA
  *   array, appending both existing records and new records. Everything needed to update the table is stored in an update structure.
- * - **Apply Update** (optional):
- *   You may, but do not need to, apply the update to the table using `aspa_table_update_swap_in_apply`. This will swap in the
- *   newly created ASPA array in the table and notify clients about changes made to records during the update.
- * - **Finish Update** (mandatory):
- *   After computing the update -- regardless of whether said computation failed -- you must perform a finishing step
- *   using `aspa_table_update_swap_in_finish`. This will deallocate provider arrays and other data created during the update
- *   that's now unused.
+ * - **Apply Update** or **Discard Update**:
+ *   You either have to apply the update using `aspa_table_update_swap_in_apply` or discard it by calling `aspa_table_update_swap_in_discard`.
+ *   This will either swap in the newly created ASPA array and notify clients about changes or discard and release data that's now unused..
  *
  * The implementation guarantess no changes are made to the ASPA table between calling `aspa_table_update_swap_in_compute`
- * and `aspa_table_update_swap_in_finish`.
+ * and `aspa_table_update_swap_in_apply`/`aspa_table_update_swap_in_discard`.
  *
  * ## In-Place Update Mechanism
  * The ASPA table's **In-Place** update mechanism involves in-place modifications to the array of records and an undo function
@@ -150,6 +146,7 @@ struct aspa_update_operation {
 	enum aspa_operation_type type;
 	struct aspa_record record;
 	bool is_no_op;
+	int tmp_isTreated;
 };
 
 // MARK: - Swap-In Update Mechanism
@@ -179,7 +176,7 @@ struct aspa_update {
  * @note Each record in an 'add' operation may have a provider array associated with it. Any record in a 'remove'
  * operation must have its @c provider_count set to 0 and @c provider_array set to @c NULL .
  * @note This function acquires an update lock on the given ASPA table ensuring no mutations occur while computing the update or before the update is applied.
- * You must call @c aspa_table_finish_update afterwards to unlock the update lock.
+ * You must call @c aspa_table_update_swap_in_apply or @c aspa_table_update_swap_in_discard to either apply or discard the update.
  *
  * @param[in] aspa_table ASPA table to store new ASPA data in.
  * @param[in] rtr_socket The socket the updates originate from.
@@ -196,18 +193,20 @@ enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table
 						   struct aspa_update **update);
 
 /**
- * @brief Applys the given update, as previously computed by @c aspa_table_update_swap_in_compute .
+ * @brief Applys the given update, as previously computed by @c aspa_table_update_swap_in_compute ,
+ * releases memory allocated while computing the update and unlocks update lock. The update is consumed.
  *
  * @param update The update that will be applied.
  */
-void aspa_table_update_swap_in_apply(struct aspa_update *update);
+void aspa_table_update_swap_in_apply(struct aspa_update **update);
 
 /**
- * @brief Finishes the update, releases memory allocated while computing the update and unlocks update lock.
+ * @brief Discards the given update, releases memory allocated while computing the update and unlocks update lock.
+ * The update is consumed.
  *
- * @param update The update struct to free
+ * @param update The update to discard.
  */
-void aspa_table_update_swap_in_finish(struct aspa_update *update);
+void aspa_table_update_swap_in_discard(struct aspa_update **update);
 
 // MARK: - In-Place Update Mechanism
 
@@ -255,7 +254,7 @@ enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, 
  * @param[in] operations  Add and remove operations.
  * @param[in] count  Number of operations.
  */
-void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations, size_t count);
+void aspa_table_update_in_place_cleanup(struct aspa_update_operation **operations, size_t count);
 
 #endif /* RTR_ASPA_PRIVATE_H */
 /** @} */

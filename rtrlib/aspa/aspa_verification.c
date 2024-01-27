@@ -74,7 +74,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 	// has index 0.
 	// Doesn't check any hop twice.
 	if (len <= 1)
-        // Trivially VALID AS_PATH
+		// Trivially VALID AS_PATH
 		return ASPA_AS_PATH_VALID;
 
 	pthread_rwlock_rdlock(&aspa_table->lock);
@@ -86,7 +86,7 @@ static enum aspa_verification_result aspa_verify_as_path_upstream(struct aspa_ta
 		r -= 1;
 
 	if (r == 0) {
-        // Complete customer-provider chain, VALID upstream AS_PATH
+		// Complete customer-provider chain, VALID upstream AS_PATH
 		pthread_rwlock_unlock(&aspa_table->lock);
 		return ASPA_AS_PATH_VALID;
 	}
@@ -146,7 +146,7 @@ static enum aspa_verification_result aspa_verify_as_path_downstream(struct aspa_
 	// has index 0.
 	// Doesn't check any hop twice.
 	if (len <= 2)
-        // Trivially VALID AS_PATH
+		// Trivially VALID AS_PATH
 		return ASPA_AS_PATH_VALID;
 
 	pthread_rwlock_rdlock(&aspa_table->lock);

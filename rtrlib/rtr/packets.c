@@ -41,7 +41,7 @@
  */
 #define ASPA_IN_PLACE 'P'
 #define ASPA_SWAP_IN 'S'
-#define ASPA_UPDATE_MECHANISM ASPA_IN_PLACE
+#define ASPA_UPDATE_MECHANISM ASPA_SWAP_IN
 
 struct aspa_pdu_list_node {
 	struct pdu_aspa *pdu;
@@ -1269,13 +1269,12 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
     }
         
     if (proceed) {
-        RTR_DBG1("ASPA update computed");
-        aspa_table_update_swap_in_apply(aspa_update);
+        aspa_table_update_swap_in_apply(&aspa_update);
         RTR_DBG1("ASPA records added");
+    } else {
+        aspa_table_update_swap_in_discard(&aspa_update);
     }
 
-    aspa_table_update_swap_in_finish(aspa_update);
-    aspa_update = NULL;
 #elif ASPA_UPDATE_MECHANISM == ASPA_IN_PLACE
     if (proceed) {
         RTR_DBG1("spki data added");
@@ -1300,11 +1299,10 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
     }
     
     if (proceed) {
-        RTR_DBG1("ASPA update computed");
+        RTR_DBG1("ASPA data added");
     }
 
-    aspa_table_update_in_place_cleanup(aspa_operations, aspa_pdu_count);
-    aspa_operations = NULL;
+    aspa_table_update_in_place_cleanup(&aspa_operations, aspa_pdu_count);
     aspa_failed_operation = NULL;
 #else
 #error "Invalid ASPA_UPDATE_MECHANISM value."

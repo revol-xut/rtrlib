@@ -27,12 +27,15 @@ static enum aspa_status aspa_table_notify_clients(struct aspa_table *aspa_table,
 	if (aspa_table->update_fp && record) {
 		// Realloc in order not to expose internal record
 		struct aspa_record rec = *record;
-		size_t size = sizeof(uint32_t) * record->provider_count;
-		rec.provider_asns = lrtr_malloc(size);
-		if (record->provider_asns && size > 0)
+
+		if (record->provider_asns && record->provider_count > 0) {
+			size_t size = sizeof(uint32_t) * record->provider_count;
+
+			rec.provider_asns = lrtr_malloc(size);
 			memcpy(rec.provider_asns, record->provider_asns, size);
-		else
+		} else {
 			rec.provider_asns = NULL;
+		}
 
 		aspa_table->update_fp(aspa_table, rec, rtr_socket, operation_type);
 	}
@@ -287,10 +290,13 @@ static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rt
 		struct aspa_update_operation *current = &operations[i];
 		struct aspa_update_operation *next = (i < count - 1) ? &(operations[i + 1]) : NULL;
 
+#ifndef NDEBUG
+		// Sanity check record
 		if (current->type == ASPA_REMOVE) {
 			assert(current->record.provider_count == 0);
 			assert(current->record.provider_asns == NULL);
 		}
+#endif
 
 		// Sort providers.
 		// We consider this an implementation detail, callers must not make any assumptions on the
@@ -338,6 +344,7 @@ static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rt
 			// Error: Duplicate Add.
 			if (next_matches_current && next->type == ASPA_ADD) {
 				*failed_operation = next;
+				current->record.provider_asns = NULL;
 				return ASPA_DUPLICATE_RECORD;
 			}
 
@@ -345,7 +352,7 @@ static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rt
 			// These form a no-op.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
 #ifdef ASPA_NOTIFY_NO_OPS
-				// If it's a remove operation, we insert a reference to the removed record's providers.
+				// Complete record's providers for clients
 				next->record = current->record;
 #endif
 
@@ -363,6 +370,10 @@ static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rt
 				*failed_operation = current;
 				return ASPA_ERROR;
 			}
+
+			// If it's an add operation, we insert a reference to the newly created record's providers.
+			current->record.provider_asns =
+				aspa_array_get_record(new_array, new_array->size - 1)->provider_asns;
 		}
 
 		// MARK: Handling 'remove' operations
@@ -478,69 +489,107 @@ enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table
 	return res;
 }
 
-void aspa_table_update_swap_in_apply(struct aspa_update *update)
+static void aspa_table_update_swap_in_consume(struct aspa_update **update_pointer, const bool apply)
 {
 	// Not going to re-apply update or apply if computation failed
-	if (!update || !update->table || !update->operations || !update->node || !update->new_array ||
-	    !!update->failed_operation) {
+	if (!update_pointer)
 		return;
-	}
 
-	struct aspa_array *old_array = update->node->aspa_array;
-
-	pthread_rwlock_wrlock(&update->table->lock);
-	update->node->aspa_array = update->new_array;
-	pthread_rwlock_unlock(&update->table->lock);
-
-	// Free old array
-	aspa_array_free(old_array, false);
-	old_array = NULL;
-
-	// Notify clients
-	for (size_t i = 0; i < update->operation_count; i++) {
-		struct aspa_update_operation *op = &update->operations[i];
-
-// Notify clients
-// We can directly use the operation array as the source for the diff
-// so we don't need to rely on first notifying clients about all records
-// in the old_array being removed and then every record in the new_array
-// being added again.
-#ifdef ASPA_NOTIFY_NO_OPS
-		aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket, op->type);
-#else
-		if (!op->is_no_op)
-			aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket, op->type);
-#endif
-
-		// If it's a remove operation, we inserted a reference to the removed record's providers.
-		// Release that provider array now and restore that 'remove'
-		// operation back to its original state.
-		if (!op->is_no_op && op->type == ASPA_REMOVE) {
-			if (op->record.provider_asns)
-				lrtr_free(op->record.provider_asns);
-
-			op->record.provider_asns = NULL;
-			op->record.provider_count = 0;
-		}
-	}
-
-	update->new_array = NULL;
-	update->node = NULL;
-}
-
-void aspa_table_update_swap_in_finish(struct aspa_update *update)
-{
+	struct aspa_update *update = *update_pointer;
 	if (!update)
 		return;
+
+	struct aspa_array *old_array = NULL;
+
+	if (apply) {
+		if (!update->table || !update->operations || !update->node || !update->new_array ||
+		    !!update->failed_operation)
+			return;
+
+		old_array = update->node->aspa_array;
+		pthread_rwlock_wrlock(&update->table->lock);
+		update->node->aspa_array = update->new_array;
+		pthread_rwlock_unlock(&update->table->lock);
+	}
+
+	// Prevent access
+	*update_pointer = NULL;
 
 	// MARK: Change Lock
 	// We're done with the update, allow changes again.
 	pthread_rwlock_unlock(&update->table->update_lock);
 
+	// Handle notifications and cleanup...
+	for (size_t i = 0; i < update->operation_count; i++) {
+		struct aspa_update_operation *op = &update->operations[i];
+
+		// TODO: @carl check if this can get optimized away
+		if (apply) {
+			// Notify clients
+			// We can directly use the operation array as the source for the diff
+			// so we don't need to rely on first notifying clients about all records
+			// in the old_array being removed and then every record in the new_array
+			// being added again.
+#ifdef ASPA_NOTIFY_NO_OPS
+			aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket, op->type);
+#else
+			if (!op->is_no_op)
+				aspa_table_notify_clients(update->table, &op->record, update->node->rtr_socket,
+							  op->type);
+#endif
+
+			// If it's a remove operation, we need to deallocate the existing record's
+			// provider array as it is no longer present in the new ASPA array.
+			if (!op->is_no_op && op->type == ASPA_REMOVE) {
+				if (op->record.provider_asns)
+					lrtr_free(op->record.provider_asns);
+
+				op->record.provider_asns = NULL;
+				op->record.provider_count = 0;
+			}
+		} else {
+			// No cleanup necessary for operations that haven't even been performed in the first place
+			if (update->failed_operation && (op == update->failed_operation))
+				break;
+
+			// If it's an add operation, we need to deallocate the newly created record's
+			// provider array as it is not needed
+			if (!op->is_no_op && op->type == ASPA_ADD) {
+				if (op->record.provider_asns)
+					lrtr_free(op->record.provider_asns);
+
+				op->record.provider_asns = NULL;
+			}
+		}
+	}
+
+	// Free
+	if (apply && old_array)
+		aspa_array_free(old_array, false);
+
+	if (!apply && update->new_array)
+		aspa_array_free(update->new_array, false);
+
 	if (update->operations)
 		lrtr_free(update->operations);
 
+	update->operations = NULL;
+	update->operation_count = 0;
+	update->failed_operation = NULL;
+	update->new_array = NULL;
+	update->node = NULL;
+	update->table = NULL;
 	lrtr_free(update);
+}
+
+void aspa_table_update_swap_in_apply(struct aspa_update **update_pointer)
+{
+	aspa_table_update_swap_in_consume(update_pointer, true);
+}
+
+void aspa_table_update_swap_in_discard(struct aspa_update **update_pointer)
+{
+	aspa_table_update_swap_in_consume(update_pointer, false);
 }
 
 // MARK: - In-Place Update Mechanism
@@ -586,10 +635,13 @@ enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struc
 		struct aspa_update_operation *current = &operations[i];
 		struct aspa_update_operation *next = (i < count - 1) ? &(operations[i + 1]) : NULL;
 
+#ifndef NDEBUG
+		// Sanity check record
 		if (current->type == ASPA_REMOVE) {
 			assert(current->record.provider_count == 0);
 			assert(current->record.provider_asns == NULL);
 		}
+#endif
 
 		// Sort providers.
 		// We consider this an implementation detail, callers must not make any assumptions on the
@@ -827,13 +879,13 @@ enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, 
 	return res;
 }
 
-void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations, size_t count)
+void aspa_table_update_in_place_cleanup(struct aspa_update_operation **operations, size_t count)
 {
-	if (!operations || count == 0)
+	if (!operations || !*operations || count == 0)
 		return;
 
 	for (size_t i = 0; i < count; i++) {
-		struct aspa_update_operation *op = &operations[i];
+		struct aspa_update_operation *op = &(*operations)[i];
 
 		// If it's a remove operation, we inserted a reference to the removed record's providers.
 		// Release that provider array now and restore that 'remove'
@@ -847,5 +899,6 @@ void aspa_table_update_in_place_cleanup(struct aspa_update_operation *operations
 		}
 	}
 
-	lrtr_free(operations);
+	lrtr_free(*operations);
+	*operations = NULL;
 }
