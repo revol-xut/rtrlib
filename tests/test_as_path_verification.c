@@ -19,11 +19,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define ASNS(...)             \
-	((uint32_t[])         \
-	{                     \
-		__VA_ARGS__   \
-	})
+#define ASNS(...) ((uint32_t[]){__VA_ARGS__})
 
 // clang-format off
 

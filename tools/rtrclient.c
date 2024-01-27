@@ -577,8 +577,8 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 	}
 
 	printf(" ]\n");
-
 	pthread_mutex_unlock(&stdout_mutex);
+	free(record.provider_asns);
 }
 
 static void parse_global_opts(int argc, char **argv)

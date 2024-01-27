@@ -13,6 +13,19 @@
 
 #include <assert.h>
 
+#define ASNS(...) ((uint32_t[]){__VA_ARGS__})
+
+#define SEEDED_ASNS(seed) ASNS(seed, seed + 1, seed + 2)
+
+// clang-format off
+
+#define RECORD(cas, providers) \
+	((struct aspa_record){.customer_asn = cas, \
+				  .provider_count = (size_t)(sizeof(providers) / sizeof(uint32_t)), \
+				  .provider_asns = sizeof(providers) == 0 ? NULL : providers})
+
+// clang-format on
+
 static void test_create_array(void)
 {
 	struct aspa_array *array;
@@ -21,22 +34,9 @@ static void test_create_array(void)
 	assert(array->data);
 	assert(array->size == 0);
 	assert(array->capacity >= 128);
+
+	aspa_array_free(array, true);
 };
-
-static void generate_fake_aspa_record(uint32_t cas, uint32_t random_number, struct aspa_record **record)
-{
-	struct aspa_record *new_record = lrtr_malloc(sizeof(struct aspa_record));
-
-	new_record->customer_asn = cas;
-	uint32_t *provider_asns = lrtr_malloc(sizeof(*new_record->provider_asns) * 3);
-
-	for (size_t i = 0; i < 3; i++)
-		provider_asns[i] = random_number + i;
-
-	new_record->provider_count = 3;
-	new_record->provider_asns = provider_asns;
-	*record = new_record;
-}
 
 static void test_add_element(void)
 {
@@ -44,10 +44,9 @@ static void test_add_element(void)
 
 	assert(aspa_array_create(&array) == ASPA_SUCCESS);
 
-	struct aspa_record *record;
+	struct aspa_record record = RECORD(42, SEEDED_ASNS(300));
 
-	generate_fake_aspa_record(42, 300, &record);
-	assert(aspa_array_insert(array, 0, record, false) == 0);
+	assert(aspa_array_insert(array, 0, &record, true) == 0);
 	assert(array->data[0].customer_asn == 42);
 	assert(array->data[0].provider_count == 3);
 	assert(array->data[0].provider_asns[0] == 300);
@@ -65,27 +64,25 @@ static void test_insert(void)
 	array->capacity = 2;
 	struct aspa_record *old_pointer = array->data;
 
-	struct aspa_record *record_4;
+	struct aspa_record record_4 = RECORD(4, SEEDED_ASNS(600));
 
-	generate_fake_aspa_record(4, 600, &record_4);
-	assert(aspa_array_insert(array, 0, record_4, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 0, &record_4, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_2;
+	struct aspa_record record_1 = RECORD(1, SEEDED_ASNS(300));
 
-	generate_fake_aspa_record(2, 400, &record_2);
-	assert(aspa_array_insert(array, 1, record_2, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 1, &record_1, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_1;
+	struct aspa_record record_2 = RECORD(2, SEEDED_ASNS(400));
 
-	generate_fake_aspa_record(1, 300, &record_1);
-	assert(aspa_array_insert(array, 2, record_1, false) == ASPA_SUCCESS);
+	// Verify shifting works
+	assert(aspa_array_insert(array, 1, &record_2, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_3;
+	struct aspa_record record_3 = RECORD(3, SEEDED_ASNS(500));
 
-	generate_fake_aspa_record(3, 500, &record_3);
-	assert(aspa_array_insert(array, 3, record_3, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 3, &record_3, true) == ASPA_SUCCESS);
 
-	assert(old_pointer != array->data); // new pointer because relocated
+	// New pointer because reallocated
+	assert(old_pointer != array->data);
 	assert(array->capacity >= 4);
 	assert(array->size == 4);
 
@@ -105,27 +102,24 @@ static void test_append(void)
 	array->capacity = 2;
 	struct aspa_record *old_pointer = array->data;
 
-	struct aspa_record *record_4;
+	struct aspa_record record_4 = RECORD(4, SEEDED_ASNS(600));
 
-	generate_fake_aspa_record(4, 600, &record_4);
-	assert(aspa_array_append(array, record_4, false) == ASPA_SUCCESS);
+	assert(aspa_array_append(array, &record_4, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_2;
+	struct aspa_record record_2 = RECORD(2, SEEDED_ASNS(400));
 
-	generate_fake_aspa_record(2, 400, &record_2);
-	assert(aspa_array_append(array, record_2, false) == ASPA_SUCCESS);
+	assert(aspa_array_append(array, &record_2, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_1;
+	struct aspa_record record_1 = RECORD(1, SEEDED_ASNS(300));
 
-	generate_fake_aspa_record(1, 300, &record_1);
-	assert(aspa_array_append(array, record_1, false) == ASPA_SUCCESS);
+	assert(aspa_array_append(array, &record_1, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_3;
+	struct aspa_record record_3 = RECORD(3, SEEDED_ASNS(500));
 
-	generate_fake_aspa_record(3, 500, &record_3);
-	assert(aspa_array_append(array, record_3, false) == ASPA_SUCCESS);
+	assert(aspa_array_append(array, &record_3, true) == ASPA_SUCCESS);
 
-	assert(old_pointer != array->data); // new pointer because relocated
+	// new pointer because reallocated
+	assert(old_pointer != array->data);
 	assert(array->capacity >= 4);
 	assert(array->size == 4);
 
@@ -143,25 +137,21 @@ static void test_remove_element(void)
 
 	assert(aspa_array_create(&array) == 0);
 
-	struct aspa_record *record_1;
+	struct aspa_record record_1 = RECORD(1, SEEDED_ASNS(300));
 
-	generate_fake_aspa_record(1, 300, &record_1);
-	assert(aspa_array_insert(array, 0, record_1, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 0, &record_1, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_2;
+	struct aspa_record record_2 = RECORD(2, SEEDED_ASNS(400));
 
-	generate_fake_aspa_record(2, 400, &record_2);
-	assert(aspa_array_insert(array, 1, record_2, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 1, &record_2, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_3;
+	struct aspa_record record_3 = RECORD(3, SEEDED_ASNS(500));
 
-	generate_fake_aspa_record(3, 500, &record_3);
-	assert(aspa_array_insert(array, 2, record_3, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 2, &record_3, true) == ASPA_SUCCESS);
 
-	struct aspa_record *record_4;
+	struct aspa_record record_4 = RECORD(4, SEEDED_ASNS(600));
 
-	generate_fake_aspa_record(4, 600, &record_4);
-	assert(aspa_array_insert(array, 3, record_4, false) == ASPA_SUCCESS);
+	assert(aspa_array_insert(array, 3, &record_4, true) == ASPA_SUCCESS);
 
 	assert(array->data[2].customer_asn == 3);
 
@@ -182,30 +172,25 @@ static void test_find_element(void)
 
 	assert(aspa_array_create(&array) == 0);
 
-	struct aspa_record *record_1;
+	struct aspa_record record_1 = RECORD(1, SEEDED_ASNS(300));
 
-	generate_fake_aspa_record(1, 300, &record_1);
-	assert(aspa_array_insert(array, 0, record_1, false) == 0);
+	assert(aspa_array_insert(array, 0, &record_1, true) == 0);
 
-	struct aspa_record *record_2;
+	struct aspa_record record_2 = RECORD(2, SEEDED_ASNS(400));
 
-	generate_fake_aspa_record(2, 400, &record_2);
-	assert(aspa_array_insert(array, 1, record_2, false) == 0);
+	assert(aspa_array_insert(array, 1, &record_2, true) == 0);
 
-	struct aspa_record *record_3;
+	struct aspa_record record_3 = RECORD(3, SEEDED_ASNS(500));
 
-	generate_fake_aspa_record(3, 500, &record_3);
-	assert(aspa_array_insert(array, 2, record_3, false) == 0);
+	assert(aspa_array_insert(array, 2, &record_3, true) == 0);
 
-	struct aspa_record *record_4;
+	struct aspa_record record_4 = RECORD(4, SEEDED_ASNS(600));
 
-	generate_fake_aspa_record(4, 600, &record_4);
-	assert(aspa_array_insert(array, 3, record_4, false) == 0);
+	assert(aspa_array_insert(array, 3, &record_4, true) == 0);
 
-	struct aspa_record *record_5;
+	struct aspa_record record_5 = RECORD(5, SEEDED_ASNS(700));
 
-	generate_fake_aspa_record(5, 700, &record_5);
-	assert(aspa_array_insert(array, 4, record_5, false) == 0);
+	assert(aspa_array_insert(array, 4, &record_5, true) == 0);
 
 	assert(aspa_array_search(array, 1) == &array->data[0]);
 	assert(aspa_array_search(array, 2) == &array->data[1]);

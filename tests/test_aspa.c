@@ -254,6 +254,7 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 	}
 
 	printf(" ]\n");
+	lrtr_free(record.provider_asns);
 }
 
 static void assert_table(struct rtr_socket *socket, struct aspa_record records[], size_t record_count)
@@ -301,6 +302,7 @@ static void test_regular_announcement(struct rtr_socket *socket)
 	);
 
 	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
 
 	ASSERT_TABLE(socket, RECORD(1100, ASNS(1101, 1102, 1103, 1104)));
 }
@@ -594,7 +596,7 @@ static void test_regular_swap(struct rtr_socket *socket)
 	);
 
 	struct aspa_table *src_table = socket->aspa_table;
-	struct aspa_table *dst_table = lrtr_calloc(1, sizeof(struct aspa_table));
+	struct aspa_table *dst_table = lrtr_malloc(sizeof(struct aspa_table));
 
 	assert(dst_table);
 	aspa_table_init(dst_table, aspa_update_callback);
@@ -646,6 +648,7 @@ static void test_regular_swap(struct rtr_socket *socket)
 	assert(callback_index == callback_count);
 
 	aspa_table_free(dst_table, false);
+	lrtr_free(dst_table);
 }
 
 static void test_withdraw_twice(struct rtr_socket *socket)
@@ -848,7 +851,7 @@ static void test_corrupt(struct rtr_socket *socket)
 	);
 }
 
-// clang-format off
+// clang-format on
 
 static void cleanup(struct rtr_socket **socket)
 {
@@ -862,15 +865,28 @@ static void cleanup(struct rtr_socket **socket)
 	}
 
 	if (socket && *socket) {
-		if ((*socket)->aspa_table)
+		if ((*socket)->aspa_table) {
 			aspa_table_free((*socket)->aspa_table, false);
+			lrtr_free((*socket)->aspa_table);
+		}
+
+		if ((*socket)->spki_table) {
+			spki_table_free_without_notify((*socket)->spki_table);
+			lrtr_free((*socket)->spki_table);
+		}
+
+		if ((*socket)->pfx_table) {
+			pfx_table_free_without_notify((*socket)->pfx_table);
+			lrtr_free((*socket)->pfx_table);
+		}
 
 		if ((*socket)->tr_socket)
 			lrtr_free((*socket)->tr_socket);
 
 		lrtr_free(*socket);
-
 		*socket = NULL;
+	} else {
+		printf("ERROR: NO SOCKET");
 	}
 
 	clear_expected_callbacks();
@@ -880,8 +896,8 @@ static struct rtr_socket *create_socket(bool is_resetting)
 {
 	struct tr_socket *tr_socket = lrtr_calloc(1, sizeof(struct tr_socket));
 
-	tr_socket->recv_fp = (tr_recv_fp) &custom_recv;
-	tr_socket->send_fp = (tr_send_fp) &custom_send;
+	tr_socket->recv_fp = (tr_recv_fp)&custom_recv;
+	tr_socket->send_fp = (tr_send_fp)&custom_send;
 
 	struct rtr_socket *socket = lrtr_calloc(1, sizeof(struct rtr_socket));
 
@@ -891,7 +907,7 @@ static struct rtr_socket *create_socket(bool is_resetting)
 	socket->state = RTR_SYNC;
 	socket->tr_socket = tr_socket;
 
-	struct aspa_table *aspa_table = lrtr_calloc(1, sizeof(struct aspa_table));
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(struct aspa_table));
 
 	assert(aspa_table);
 	aspa_table_init(aspa_table, aspa_update_callback);
@@ -943,6 +959,8 @@ static void run_tests(bool is_resetting)
 	printf("\nTEST: announce_existing\n");
 	socket = create_socket(is_resetting);
 	test_announce_existing(socket);
+
+	cleanup(&socket);
 
 	printf("\nTEST: announce_twice\n");
 	socket = create_socket(is_resetting);

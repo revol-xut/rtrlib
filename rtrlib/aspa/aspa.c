@@ -113,6 +113,9 @@ static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, st
 	struct aspa_array *array = (*node)->aspa_array;
 	struct rtr_socket *socket = (*node)->rtr_socket;
 
+	// Remove node for socket
+	aspa_store_remove_node(node);
+
 	if (!array)
 		// Doesn't exist anymore
 		return ASPA_SUCCESS;
@@ -122,9 +125,6 @@ static enum aspa_status aspa_table_remove_node(struct aspa_table *aspa_table, st
 		for (size_t i = 0; i < array->size; i++)
 			aspa_table_notify_clients(aspa_table, aspa_array_get_record(array, i), socket, false);
 	}
-
-	// Remove node for socket
-	aspa_store_remove_node(node);
 
 	// Release all records and their provider sets
 	aspa_array_free(array, true);
