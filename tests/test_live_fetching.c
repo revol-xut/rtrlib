@@ -7,8 +7,8 @@
  * Website: http://rtrlib.realmv6.org/
  */
 
-#include "rtrlib/rtrlib.h"
 #include "rtrlib/aspa/aspa_private.h"
+#include "rtrlib/rtrlib.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,14 +94,14 @@ int main(void)
 	}
 
 	/* printing all fetched objects */
-	struct aspa_array* array = ((*groups[0].sockets)->aspa_table->store)->aspa_array;
+	struct aspa_array *array = ((*groups[0].sockets)->aspa_table->store)->aspa_array;
 
 	printf("ASPA:\n");
 	for (uint32_t i = 0; i < array->size; i++) {
 		printf("CAS %u => [ ", array->data[i].customer_asn);
 		for (uint32_t j = 0; j < array->data[i].provider_count; j++) {
 			printf("%u", array->data[i].provider_asns[j]);
-			if (j < array->data[i].provider_count-1)
+			if (j < array->data[i].provider_count - 1)
 				printf(", ");
 		}
 		printf(" ]\n");
