@@ -757,9 +757,9 @@ static void test_announce_withdraw_announce_twice(struct rtr_socket *socket)
 	);
 }
 
-static void test_long(struct rtr_socket *socket)
+static void test_multiple_syncs(struct rtr_socket *socket)
 {
-	const size_t NPROV = 4;
+	const size_t PROVIDER_COUNT = 4;
 	// amount of ASPAs to be withdrawn (twice as much are added)
 	const size_t N = 256 + 4;
 
@@ -784,14 +784,14 @@ static void test_long(struct rtr_socket *socket)
 
 	// repeated cycle: withdraw one, announce two new
 	// store expected provider asns, starting with providers for c_an = 2
-	uint32_t provider_asns[(2 * N - 1) * NPROV];
+	uint32_t provider_asns[(2 * N - 1) * PROVIDER_COUNT];
 
 	// enter provider_asns for ASPA record 2 => {3, 4, 5, 6}
-	for (int k = 0; k < NPROV; k++)
-		provider_asns[k] = k + 3;
+	for (size_t i = 0; i < PROVIDER_COUNT; i++)
+		provider_asns[i] = i + 3;
 
 	// customer asn to be withdrawn
-	for (int c_wd = 1; c_wd < N; c_wd++) {
+	for (uint32_t c_wd = 1; c_wd < N; c_wd++) {
 		// first customer asn to be announced
 		uint32_t c_an = 2 * c_wd + 1;
 
@@ -814,45 +814,45 @@ static void test_long(struct rtr_socket *socket)
 		assert(callback_index == callback_count);
 
 		// store announced ASPAs' providers for validation
-		for (int k = 0; k < NPROV; k++) {
-			provider_asns[NPROV * (c_an - 2) + k] = c_an + k + 1;
-			provider_asns[NPROV * (c_an - 1) + k] = c_an + k + 2;
+		for (size_t i = 0; i < PROVIDER_COUNT; i++) {
+			provider_asns[PROVIDER_COUNT * (size_t)(c_an - 2) + i] = c_an + (uint32_t)i + 1;
+			provider_asns[PROVIDER_COUNT * (size_t)(c_an - 1) + i] = c_an + (uint32_t)i + 2;
 		}
 
 		// build array of all records expected to be in aspa_table
-		// (customer asns after last-withdrawn until including last-announced)
+		// (customer asns after last withdrawn until including last announced)
 		size_t record_count = c_wd + 2;
 		struct aspa_record records[record_count];
 
-		for (uint32_t c_ex = c_wd + 1; c_ex <= c_an + 1; c_ex++) {
+		for (size_t c_ex = c_wd + 1; c_ex <= c_an + 1; c_ex++) {
 			records[c_ex - (c_wd + 1)] =
 				((struct aspa_record) {
-					.customer_asn = c_ex,
-					.provider_count = NPROV,
-					.provider_asns = &provider_asns[NPROV * (c_ex - 2)]
+					.customer_asn = (uint32_t)c_ex,
+					.provider_count = PROVIDER_COUNT,
+					.provider_asns = &provider_asns[PROVIDER_COUNT * (c_ex - 2)]
 				});
 		}
 		assert_table(socket, records, record_count);
 	}
 }
 
-static void test_lots(struct rtr_socket *socket)
+static void test_many_pdus(struct rtr_socket *socket)
 {
-	const size_t NPROV = 4;
+	const size_t PROVIDER_COUNT = 4;
 	// amount of ASPAs to be withdrawn (twice as much are added)
 	const size_t N = 256 + 4;
 
 	// providers (ascending integers)
-	uint32_t provider_asns[N + NPROV - 1];
+	uint32_t provider_asns[N + PROVIDER_COUNT - 1];
 
-	for (size_t i = 0; i < N + NPROV - 1; i++)
+	for (size_t i = 0; i < N + PROVIDER_COUNT - 1; i++)
 		provider_asns[i] = i + 2;
 
 	// aspa pdus
 	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
 
 	for (size_t i = 0; i < N; i++)
-		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, i + 1, ASNS(i+2,i+3,i+4,i+5));
+		APPEND_ASPA(RTR_PROTOCOL_VERSION_2, ASPA_ANNOUNCE, i + 1, ASNS(i + 2, i + 3, i + 4, i + 5));
 
 	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 437);
 
@@ -863,8 +863,8 @@ static void test_lots(struct rtr_socket *socket)
 
 	for (size_t i = 0; i < N; i++) {
 		records[i] = (struct aspa_record){
-				.customer_asn = i + 1, \
-				.provider_count = 4, \
+				.customer_asn = i + 1,
+				.provider_count = PROVIDER_COUNT,
 				.provider_asns = &provider_asns[i]
 				};
 		callbacks[i] = (struct update_callback){
@@ -881,7 +881,6 @@ static void test_lots(struct rtr_socket *socket)
 	assert(callback_index == callback_count);
 
 	assert_table(socket, records, N);
-
 }
 
 static void test_corrupt(struct rtr_socket *socket)
@@ -1079,15 +1078,15 @@ static void run_tests(bool is_resetting)
 
 	cleanup(&socket);
 
-	printf("\nTEST: long\n");
+	printf("\nTEST: multiple_syncs\n");
 	socket = create_socket(is_resetting);
-	test_long(socket);
+	test_multiple_syncs(socket);
 
 	cleanup(&socket);
 
-	printf("\nTEST: lots\n");
+	printf("\nTEST: many_pdus\n");
 	socket = create_socket(is_resetting);
-	test_lots(socket);
+	test_many_pdus(socket);
 
 	cleanup(&socket);
 }
