@@ -49,7 +49,7 @@ struct aspa_table;
 /**
  * @brief An enum describing the type of operation the ASPA table should perform using any given ASPA record.
  */
-enum aspa_operation_type {
+enum __attribute__ ((__packed__)) aspa_operation_type {
 	/** The existing record, identified by its customer ASN, shall be withdrawn from the ASPA table. */
 	ASPA_REMOVE = 0,
 
