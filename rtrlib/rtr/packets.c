@@ -1331,8 +1331,6 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 
 static inline int rtr_handle_eod_pdu(struct rtr_socket *rtr_socket, struct pdu_end_of_data_v0 *eod_pdu, char pdu_data[])
 {
-	RTR_DBG1("EOD PDU received.");
-
 	if (eod_pdu->session_id != rtr_socket->session_id) {
 		char txt[67];
 
