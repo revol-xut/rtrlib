@@ -98,11 +98,13 @@ int main(void)
 
 	printf("ASPA:\n");
 	for (uint32_t i = 0; i < array->size; i++) {
-		printf("CAS %i -> ", array->data[i].customer_asn);
+		printf("CAS %u => [ ", array->data[i].customer_asn);
 		for (uint32_t j = 0; j < array->data[i].provider_count; j++) {
-			printf("%i ", array->data[i].provider_asns[j]);
+			printf("%u", array->data[i].provider_asns[j]);
+			if (j < array->data[i].provider_count-1)
+				printf(", ");
 		}
-		printf("\n");
+		printf(" ]\n");
 	}
 
 	rtr_mgr_stop(conf);
