@@ -141,7 +141,8 @@ static enum aspa_status aspa_array_insert_internal(struct aspa_array *array, siz
 enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struct aspa_record *record,
 				   bool copy_providers)
 {
-	if (index > array->size || !array || !array->data || !record)
+	if (!array || index > array->size || !array->data || !record ||
+	    ((record->provider_count > 0) && !record->provider_asns))
 		return ASPA_ERROR;
 
 	return aspa_array_insert_internal(array, index, record, copy_providers);
@@ -149,7 +150,7 @@ enum aspa_status aspa_array_insert(struct aspa_array *array, size_t index, struc
 
 enum aspa_status aspa_array_append(struct aspa_array *array, struct aspa_record *record, bool copy_providers)
 {
-	if (!array || !array->data || !record)
+	if (!array || !array->data || !record || ((record->provider_count > 0) && !record->provider_asns))
 		return ASPA_ERROR;
 
 	return aspa_array_insert_internal(array, array->size, record, copy_providers);

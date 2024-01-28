@@ -61,7 +61,7 @@ struct update_callback {
 	struct aspa_record _LINEVAR(_records)[] = {__VA_ARGS__}; \
 	assert_table(socket, _LINEVAR(_records), (size_t)(sizeof(_LINEVAR(_records)) / sizeof(struct aspa_record)))
 
-#define ASSERT_EMPTY_TABLE(socket, ...) assert_table(socket, NULL, 0)
+#define ASSERT_EMPTY_TABLE(socket) assert_table(socket, NULL, 0)
 
 #define ADDED(rec) ((struct update_callback){.source = NULL, .record = rec, .type = ASPA_ADD})
 
@@ -76,7 +76,7 @@ struct update_callback {
 	expect_update_callbacks(_LINEVAR(_callbacks), \
 				(size_t)(sizeof(_LINEVAR(_callbacks)) / sizeof(struct update_callback)))
 
-#define EXPECT_NO_UPDATE_CALLBACKS(...) \
+#define EXPECT_NO_UPDATE_CALLBACKS() \
 	expect_update_callbacks(NULL, 0)
 // clang-format on
 
@@ -258,7 +258,27 @@ static void aspa_update_callback(struct aspa_table *s, const struct aspa_record 
 
 static void assert_table(struct rtr_socket *socket, struct aspa_record records[], size_t record_count)
 {
+	assert(socket);
 	assert(socket->aspa_table);
+
+	if (record_count == 0) {
+		// Assert no data exists for that socket!
+		struct aspa_store_node *node = socket->aspa_table->store;
+
+		while (node) {
+			if (node->rtr_socket == socket) {
+				assert(node->aspa_array);
+				assert(node->aspa_array->size == 0);
+				return;
+			}
+
+			node = node->next;
+		}
+
+		return;
+	}
+
+	// Assert data exists for that socket...
 	assert(socket->aspa_table->store);
 	assert(socket->aspa_table->store->aspa_array);
 	assert(socket->aspa_table->store->rtr_socket);
@@ -268,7 +288,8 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 	struct aspa_array *array = socket->aspa_table->store->aspa_array;
 
 	if (array->size != record_count)
-		printf("error!");
+		printf("error: unexpected number of stored records!");
+
 	assert(array->size == record_count);
 
 	if (record_count <= 0)
@@ -287,6 +308,24 @@ static void assert_table(struct rtr_socket *socket, struct aspa_record records[]
 }
 
 // clang-format off
+
+static void test_no_aspa(struct rtr_socket *socket)
+{
+	// Test: regular announcement
+	// Expect: OK
+	// DB: inserted
+	begin_cache_response(RTR_PROTOCOL_VERSION_2, 0);
+	end_cache_response(RTR_PROTOCOL_VERSION_2, 0, 437);
+
+	EXPECT_NO_UPDATE_CALLBACKS();
+
+	assert(rtr_sync(socket) == RTR_SUCCESS);
+	assert(callback_index == callback_count);
+
+	ASSERT_EMPTY_TABLE(socket);
+	assert(socket->aspa_table->store == NULL);
+}
+
 static void test_regular_announcement(struct rtr_socket *socket)
 {
 	// Test: regular announcement
@@ -946,8 +985,6 @@ static void cleanup(struct rtr_socket **socket)
 
 		lrtr_free(*socket);
 		*socket = NULL;
-	} else {
-		printf("ERROR: NO SOCKET");
 	}
 
 	clear_expected_callbacks();
@@ -990,6 +1027,12 @@ static struct rtr_socket *create_socket(bool is_resetting)
 static void run_tests(bool is_resetting)
 {
 	struct rtr_socket *socket = NULL;
+
+	cleanup(&socket);
+
+	printf("\nTEST: test_regular_announcement\n");
+	socket = create_socket(is_resetting);
+	test_no_aspa(socket);
 
 	cleanup(&socket);
 

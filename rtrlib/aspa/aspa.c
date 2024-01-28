@@ -81,8 +81,6 @@ static struct aspa_store_node **aspa_store_get_node(struct aspa_store_node **nod
 	if (!node || !*node || !rtr_socket)
 		return NULL;
 
-	//	struct aspa_store_node *node = *head;
-
 	while (*node) {
 		if ((*node)->rtr_socket == rtr_socket)
 			return node;
@@ -273,14 +271,20 @@ static int compare_asns(const void *a, const void *b)
 
 /**
  * @brief This function fills the given @p new_array with records based on a number of 'add' and 'remove' operations.
+ *
+ * @warning Do not call this function manually. This function fails if zero operations are supplied!
  */
 static enum aspa_status aspa_table_update_compute_internal(struct rtr_socket *rtr_socket, struct aspa_array *array,
 							   struct aspa_array *new_array,
 							   struct aspa_update_operation *operations, size_t count,
 							   struct aspa_update_operation **failed_operation)
 {
-	if (!rtr_socket || !operations || count == 0 || !failed_operation)
-		return ASPA_ERROR;
+	// Fail hard in debug builds.
+	assert(rtr_socket);
+	assert(array);
+	assert(operations);
+	assert(count > 0);
+	assert(failed_operation);
 
 	size_t existing_i = 0;
 
@@ -410,8 +414,16 @@ enum aspa_status aspa_table_update_swap_in_compute(struct aspa_table *aspa_table
 						   struct aspa_update_operation *operations, size_t count,
 						   struct aspa_update **update)
 {
-	if (!rtr_socket || !operations || count == 0 || !update)
+	// Fail hard in debug builds.
+	assert(aspa_table);
+	assert(rtr_socket);
+	assert(update);
+
+	if (!aspa_table || !rtr_socket || !update || ((count > 0) && !operations))
 		return ASPA_ERROR;
+
+	if (count == 0)
+		return ASPA_SUCCESS;
 
 	if (!*update) {
 		*update = lrtr_malloc(sizeof(struct aspa_update));
@@ -597,8 +609,16 @@ enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struc
 					    struct aspa_update_operation *operations, size_t count,
 					    struct aspa_update_operation **failed_operation)
 {
-	if (!rtr_socket || !operations || count == 0 || !failed_operation)
+	// Fail hard in debug builds.
+	assert(aspa_table);
+	assert(rtr_socket);
+	assert(failed_operation);
+
+	if (!aspa_table || !rtr_socket || !failed_operation || ((count > 0) && !operations))
 		return ASPA_ERROR;
+
+	if (count == 0)
+		return ASPA_SUCCESS;
 
 	// stable sort operations, so operations dealing with the same customer ASN
 	// are located right next to each other
@@ -676,7 +696,7 @@ enum aspa_status aspa_table_update_in_place(struct aspa_table *aspa_table, struc
 			// This operation adds a record with $CAS, the next op however removes this $CAS record again.
 			if (next_matches_current && next->type == ASPA_REMOVE) {
 #if ASPA_NOTIFY_NO_OPS
-				// If it's a remove operation, we insert a reference to the removed record's providers.
+				// Complete record's providers for clients
 				next->record = current->record;
 				aspa_table_notify_clients(aspa_table, &current->record, rtr_socket, current->type);
 				aspa_table_notify_clients(aspa_table, &next->record, rtr_socket, next->type);
@@ -734,6 +754,12 @@ static enum aspa_status aspa_table_update_in_place_undo_internal(struct aspa_tab
 								 struct aspa_update_operation *operations, size_t count,
 								 struct aspa_update_operation *failed_operation)
 {
+	// Fail hard in debug builds.
+	assert(aspa_table);
+	assert(rtr_socket);
+	assert(operations);
+	assert(count > 0);
+
 	pthread_rwlock_wrlock(&aspa_table->lock);
 	struct aspa_store_node **node = aspa_store_get_node(&aspa_table->store, rtr_socket);
 
@@ -855,7 +881,11 @@ enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, 
 						 struct aspa_update_operation *operations, size_t count,
 						 struct aspa_update_operation *failed_operation)
 {
-	if (!rtr_socket || !operations)
+	// Fail hard in debug builds.
+	assert(aspa_table);
+	assert(rtr_socket);
+
+	if (!aspa_table || !rtr_socket || ((count > 0) && !operations))
 		return ASPA_ERROR;
 
 	if (count == 0)
@@ -880,9 +910,10 @@ enum aspa_status aspa_table_update_in_place_undo(struct aspa_table *aspa_table, 
 
 void aspa_table_update_in_place_cleanup(struct aspa_update_operation **operations, size_t count)
 {
-	if (!operations || !*operations || count == 0)
+	if (!operations || !*operations)
 		return;
 
+	// If count == 0, this won't be executed
 	for (size_t i = 0; i < count; i++) {
 		struct aspa_update_operation *op = &(*operations)[i];
 

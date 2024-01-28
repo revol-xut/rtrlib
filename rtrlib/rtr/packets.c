@@ -1045,7 +1045,12 @@ static int rtr_update_spki_table(struct rtr_socket *rtr_socket, struct spki_tabl
 static int rtr_compute_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_table *aspa_table,
 					 struct pdu_aspa **aspa_pdus, size_t pdu_count, struct aspa_update **update)
 {
-	if (!aspa_pdus || !update)
+	// Fail hard in debug builds.
+	assert(rtr_socket);
+	assert(aspa_table);
+	assert(update);
+
+	if (!update || (pdu_count > 0 && !aspa_pdus))
 		return RTR_ERROR;
 
 	if (pdu_count == 0)
@@ -1124,15 +1129,21 @@ static int rtr_update_aspa_table(struct rtr_socket *rtr_socket, struct aspa_tabl
 				 struct pdu_aspa **aspa_pdus, size_t pdu_count, struct aspa_update_operation **ops,
 				 struct aspa_update_operation **failed_operation)
 {
-	if (!aspa_pdus || !ops || !failed_operation)
+	// Fail hard in debug builds.
+	assert(rtr_socket);
+	assert(aspa_table);
+	assert(failed_operation);
+	assert(ops);
+
+	if (!ops || !failed_operation || (pdu_count > 0 && !aspa_pdus))
 		return RTR_ERROR;
 
-	if (pdu_count == 0)
+	if (!aspa_pdus && pdu_count == 0)
 		return RTR_SUCCESS;
 
 	struct aspa_update_operation *operations = lrtr_malloc(sizeof(struct aspa_update_operation) * pdu_count);
 
-	if (!ops) {
+	if (!operations) {
 		const char txt[] = "Malloc failed";
 
 		RTR_DBG("%s", txt);
@@ -1257,8 +1268,7 @@ static int rtr_sync_update_tables(struct rtr_socket *rtr_socket, struct pfx_tabl
 		RTR_DBG1("spki data added");
 
 		if (rtr_compute_update_aspa_table(rtr_socket, aspa_table, aspa_pdus, aspa_pdu_count, &aspa_update) ==
-			    RTR_ERROR ||
-		    !aspa_update) {
+			    RTR_ERROR) {
 			RTR_DBG1("error while computing ASPA update");
 			proceed = false;
 
