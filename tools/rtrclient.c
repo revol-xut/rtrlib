@@ -502,12 +502,7 @@ static void update_spki(struct spki_table *s __attribute__((unused)), const stru
 
 	pthread_mutex_lock(&stdout_mutex);
 
-	char c;
-
-	if (added)
-		c = '+';
-	else
-		c = '-';
+	char c = added ? '+' : '-';
 
 	printf("%c ", c);
 	printf("HOST:  %s:%s\n", config->host, config->port);
@@ -562,6 +557,7 @@ static void update_aspa(struct aspa_table *s __attribute__((unused)), const stru
 		c = '-';
 		break;
 	default:
+		c = '?';
 		break;
 	}
 
