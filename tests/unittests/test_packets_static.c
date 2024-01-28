@@ -232,13 +232,10 @@ static void test_pdu_to_host_byte_order(void **state)
 static void test_rtr_pdu_check_size(void **state)
 {
 	struct pdu_header pdu;
-	struct pdu_error *error = malloc(30);
-	struct pdu_aspa *aspa = malloc(24);
+	struct pdu_error *error = lrtr_calloc(1, 30);
+	struct pdu_aspa *aspa = lrtr_calloc(1, sizeof(struct pdu_aspa) + 2 * sizeof(uint32_t));
 
 	UNUSED(state);
-
-	memset(error, 0, 30);
-	memset(aspa, 0, 24);
 
 	pdu.type = SERIAL_NOTIFY;
 	pdu.len = 20;
