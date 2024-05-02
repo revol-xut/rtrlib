@@ -297,15 +297,10 @@ int rtr_mgr_config_cmp_tommy(const void *a, const void *b)
 RTRLIB_EXPORT int rtr_mgr_init(struct rtr_mgr_config **config_out, struct rtr_mgr_group groups[],
 			       const unsigned int groups_len, const unsigned int refresh_interval,
 			       const unsigned int expire_interval, const unsigned int retry_interval,
-			       const pfx_update_fp update_fp, const spki_update_fp spki_update_fp,
-			       const aspa_update_fp aspa_update_fp, const rtr_mgr_status_fp status_fp,
-			       void *status_fp_data)
+			       const rtr_mgr_status_fp status_fp, void *status_fp_data)
 {
 	enum rtr_rtvals err_code = RTR_ERROR;
 	enum rtr_interval_mode iv_mode = RTR_INTERVAL_MODE_DEFAULT_MIN_MAX;
-	struct pfx_table *pfxt = NULL;
-	struct spki_table *spki_table = NULL;
-	struct aspa_table *aspa_table = NULL;
 	struct rtr_mgr_config *config = NULL;
 	struct rtr_mgr_group *cg = NULL;
 	struct rtr_mgr_group_node *group_node;
@@ -345,26 +340,6 @@ RTRLIB_EXPORT int rtr_mgr_init(struct rtr_mgr_config **config_out, struct rtr_mg
 		last_preference = groups[i].preference;
 	}
 
-	/* Init data structures that we need to pass to the sockets */
-	pfxt = lrtr_malloc(sizeof(*pfxt));
-	if (!pfxt)
-		goto err;
-	pfx_table_init(pfxt, update_fp);
-
-	spki_table = lrtr_malloc(sizeof(*spki_table));
-	if (!spki_table)
-		goto err;
-	spki_table_init(spki_table, spki_update_fp);
-
-	aspa_table = lrtr_malloc(sizeof(*aspa_table));
-	if (!aspa_table)
-		goto err;
-	aspa_table_init(aspa_table, aspa_update_fp);
-
-	config->pfx_table = pfxt;
-	config->spki_table = spki_table;
-	config->aspa_table = aspa_table;
-
 	/* Copy the groups from the array into linked list config->groups */
 	config->len = groups_len;
 	config->groups = lrtr_malloc(sizeof(*config->groups));
@@ -401,16 +376,6 @@ RTRLIB_EXPORT int rtr_mgr_init(struct rtr_mgr_config **config_out, struct rtr_mg
 	return RTR_SUCCESS;
 
 err:
-	if (spki_table)
-		spki_table_free(spki_table);
-	if (pfxt)
-		pfx_table_free(pfxt);
-	if (aspa_table)
-		aspa_table_free(aspa_table, false);
-	lrtr_free(pfxt);
-	lrtr_free(spki_table);
-	lrtr_free(aspa_table);
-
 	lrtr_free(cg);
 
 	lrtr_free(config->groups);
@@ -419,6 +384,60 @@ err:
 	*config_out = NULL;
 
 	return err_code;
+}
+
+RTRLIB_EXPORT int rtr_mgr_add_roa_support(struct rtr_mgr_config *config, const pfx_update_fp pfx_update_fp)
+{
+	if (config == NULL) {
+		return RTR_ERROR;
+	}
+
+	/* Init prefix table that we need to pass to the sockets */
+	struct pfx_table *pfxt = lrtr_malloc(sizeof(*pfxt));
+	if (!pfxt) {
+		return RTR_ERROR;
+	}
+
+	pfx_table_init(pfxt, pfx_update_fp);
+	config->pfx_table = pfxt;
+
+	return RTR_SUCCESS;
+}
+
+RTRLIB_EXPORT int rtr_mgr_add_aspa_support(struct rtr_mgr_config *config, const aspa_update_fp aspa_update_fp)
+{
+	if (config == NULL) {
+		return RTR_ERROR;
+	}
+
+	/* Init aspa table that we need to pass to the sockets */
+	struct aspa_table *aspa_table = lrtr_malloc(sizeof(*aspa_table));
+	if (!aspa_table) {
+		return RTR_ERROR;
+	}
+
+	aspa_table_init(aspa_table, aspa_update_fp);
+	config->aspa_table = aspa_table;
+
+	return RTR_SUCCESS;
+}
+
+RTRLIB_EXPORT int rtr_mgr_add_spki_support(struct rtr_mgr_config *config, const spki_update_fp spki_update_fp)
+{
+	if (config == NULL) {
+		return RTR_ERROR;
+	}
+
+	/* Init spki table that we need to pass to the sockets */
+	struct spki_table *spki_table = lrtr_malloc(sizeof(*spki_table));
+	if (!spki_table) {
+		return ASPA_ERROR;
+	}
+
+	spki_table_init(spki_table, spki_update_fp);
+	config->spki_table = spki_table;
+
+	return ASPA_SUCCESS;
 }
 
 RTRLIB_EXPORT struct rtr_mgr_group *rtr_mgr_get_first_group(struct rtr_mgr_config *config)

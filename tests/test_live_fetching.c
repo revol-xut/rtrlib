@@ -77,8 +77,20 @@ int main(void)
 
 	struct rtr_mgr_config *conf;
 
-	if (rtr_mgr_init(&conf, groups, 1, 30, 600, 600, NULL, NULL, NULL, &connection_status_callback, NULL) < 0)
+	if (rtr_mgr_init(&conf, groups, 1, 30, 600, 600, &connection_status_callback, NULL) < 0)
 		return EXIT_FAILURE;
+
+	if (rtr_mgr_add_roa_support(conf, NULL) == RTR_ERROR) {
+		fprintf(stderr, "Failed initializing ROA support\n");
+	}
+
+	if (rtr_mgr_add_aspa_support(conf, NULL) == RTR_ERROR) {
+		fprintf(stderr, "Failed initializing ASPA support\n");
+	}
+
+	if (rtr_mgr_add_spki_support(conf, NULL) == RTR_ERROR) {
+		fprintf(stderr, "Failed initializing BGPSEC support\n");
+	}
 
 	rtr_mgr_start(conf);
 	int sleep_counter = 0;
